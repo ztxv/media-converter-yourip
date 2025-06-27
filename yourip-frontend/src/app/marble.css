@@ -1,0 +1,32 @@
+/* Marble backgrounds */
+.marble-light {
+  background: #f8fafc url('https://www.transparenttextures.com/patterns/marble.png');
+  background-size: 600px 600px;
+  background-repeat: repeat;
+  background-blend-mode: lighten;
+}
+.marble-dark {
+  background: #18181b url('https://www.transparenttextures.com/patterns/marble.png');
+  background-size: 600px 600px;
+  background-repeat: repeat;
+  background-blend-mode: multiply;
+}
+
+/* Progress bar marble effect */
+.marble-progress {
+  background: linear-gradient(90deg, #60a5fa 0%, #a5b4fc 100%);
+  height: 0.5rem;
+  border-radius: 9999px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  position: relative;
+  overflow: hidden;
+}
+.marble-progress.dark {
+  background: linear-gradient(90deg, #f87171 0%, #9f1239 100%);
+}
+.marble-progress-bar {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.7s cubic-bezier(0.4,0,0.2,1);
+  background: inherit;
+}
