@@ -76,10 +76,9 @@ async def download_mp3(request: dict):
         if not url or ('youtube.com' not in url and 'youtu.be' not in url):
             raise HTTPException(status_code=400, detail="Invalid YouTube URL")
             
-        # Create a temporary file with .mp3 extension
-        temp_fd, temp_path = tempfile.mkstemp(suffix='.mp3')
-        os.close(temp_fd)
-        temp_file = temp_path
+        # Create a temporary directory for downloads
+        temp_dir = tempfile.mkdtemp()
+        temp_path = os.path.join(temp_dir, 'temp.mp3')
         # Get video title
         print("Getting video title with yt-dlp...")
         get_title_cmd = ["yt-dlp", "--get-title", url]
@@ -100,7 +99,7 @@ async def download_mp3(request: dict):
         # Sanitize the title for filename
         safe_title = sanitize_filename(title)
         output_filename = f"{safe_title}.mp3"
-        output_path = os.path.join(os.path.dirname(temp_path), output_filename)
+        output_path = os.path.join(temp_dir, output_filename)
         
         # Download the audio with more robust options
         print("Downloading audio...")
@@ -138,13 +137,21 @@ async def download_mp3(request: dict):
         
         print(f"Successfully downloaded to: {output_path}")
         
-        # Return success message without triggering download
-        return {
-            "status": "success",
-            "message": "Video converted to MP3 successfully",
-            "title": title,
-            "filename": output_filename
-        }
+        # Read the file content and return it directly
+        with open(output_path, 'rb') as f:
+            file_content = f.read()
+            
+        # Return the file content directly in the response
+        from fastapi.responses import Response
+        return Response(
+            content=file_content,
+            media_type="audio/mpeg",
+            headers={
+                "Content-Disposition": f"attachment; filename={output_filename}",
+                "Content-Length": str(len(file_content)),
+                "X-Title": title
+            }
+        )
             
     except subprocess.CalledProcessError as e:
         error_msg = e.stderr or str(e)
@@ -154,12 +161,13 @@ async def download_mp3(request: dict):
         print(f"Unexpected error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
     finally:
-        # Clean up the temp file if it exists
-        if temp_file and os.path.exists(temp_file):
+        # Clean up the temp directory if it exists
+        if 'temp_dir' in locals() and os.path.exists(temp_dir):
             try:
-                os.unlink(temp_file)
-            except:
-                pass
+                import shutil
+                shutil.rmtree(temp_dir)
+            except Exception as e:
+                print(f"Error cleaning up temp directory: {e}")
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
