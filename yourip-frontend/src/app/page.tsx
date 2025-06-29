@@ -181,7 +181,34 @@ export default function Home() {
             src="/yourip-logo.png"
             alt="YouRip logo"
             className="w-36 h-36 drop-shadow-xl"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2IxYjFiMSI+PHBhdGggZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyczQuNDggMTAgMTAgMTAgMTAtNC40OCAxMC0xMFMxNy41MiAyIDEyIDJ6bTAgM2MxLjY2IDAgMyAxLjM0IDMgM3MtMS4zNCAzLTMgMy0zLTEuMzQtMy0zIDEuMzQtMyAzLTN6bTAgMTQuMmMtMi41IDAgNC43MS0xLjI4LTYtMy4yMi4wMy0xLjk5IDQtMy4wOCA2LTMuMDggMS45OSAwIDUuOTcgMS4xIDYgMy4wOC0xLjI5IDEuOTQtMy41IDMuMjItNiAzLjIyeiIvPjwvc3ZnPg==';
+            }}
           />
+          <div className="w-full max-w-md mt-2 text-center">
+            <pre 
+className="text-[10px] md:text-xs font-mono whitespace-pre leading-3 md:leading-4 inline-block text-center"
+              style={{
+                color: currentTheme.primary,
+                textShadow: `0 0 8px ${currentTheme.primary}, 0 0 16px ${currentTheme.primary}80`,
+              }}
+            >
+
+{String.raw`
+/$$     /$$                  /$$$$$$$  /$$          
+|  $$   /$$/                 | $$__  $$|__/          
+\  $$ /$$//$$$$$$  /$$   /$$| $$  \ $$ /$$  /$$$$$$ 
+\  $$$$//$$__  $$| $$  | $$| $$$$$$$/| $$ /$$__  $$
+ \  $$/| $$  \ $$| $$  | $$| $$__  $$| $$| $$  \ $$
+  | $$ | $$  | $$| $$  | $$| $$  \ $$| $$| $$  | $$
+  | $$ |  $$$$$$/|  $$$$$$/| $$  | $$| $$| $$$$$$$/
+  |__/  \______/  \______/ |__/  |__/|__/| $$____/ 
+                                       | $$      
+                                       | $$      
+                                       |__/      `}
+            </pre>
+          </div>
+        
           <CardTitle className="sr-only">YouRip</CardTitle>
         </CardHeader>
         <CardContent>
@@ -216,6 +243,28 @@ export default function Home() {
             >
               {loading ? "Converting..." : "Convert"}
             </Button>
+            {loading && (
+              <div className="flex justify-center mt-4 mb-2">
+                <span className="inline-block animate-spin" style={{ width: 36, height: 36 }}>
+                  <svg viewBox="0 0 50 50" style={{ width: 36, height: 36 }}>
+                    <circle
+                      cx="25"
+                      cy="25"
+                      r="20"
+                      fill="none"
+                      stroke={currentTheme.primary}
+                      strokeWidth="5"
+                      strokeDasharray="90 150"
+                      strokeLinecap="round"
+                    >
+                    </circle>
+                  </svg>
+                </span>
+              </div>
+            )}
+            {error && !loading && (
+              <p className="text-destructive text-sm text-center mt-2">{error}</p>
+            )}
 
             {error && (
               <p className="text-destructive text-sm text-center">{error}</p>
@@ -316,7 +365,7 @@ export default function Home() {
             </div>
 
             <div className="flex items-center justify-between mb-4">
-              <span className="text-sm text-gray-300">Auto-download</span>
+              <span className="text-sm text-gray-300">Simple Switch</span>
               <Switch
                 checked={autoDownload}
                 onCheckedChange={setAutoDownload}
