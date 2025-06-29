@@ -47,7 +47,7 @@ export default function Home() {
     title: string;
     thumbnail: string;
   } | null>(null);
-  const [downloading, setDownloading] = useState(false);
+  const [downloadingFiles, setDownloadingFiles] = useState<Set<string>>(new Set());
 
   // Paste-to-convert
   useEffect(() => {
@@ -134,7 +134,10 @@ export default function Home() {
   function handleManualDownload(blob?: Blob, filename?: string) {
     const info = blob && filename ? { blob, filename } : downloadInfo;
     if (!info) return;
-    setDownloading(true);
+    
+    // Add to downloading files
+    setDownloadingFiles(prev => new Set([...prev, info.filename]));
+    
     const urlObj = window.URL.createObjectURL(info.blob);
     const a = document.createElement("a");
     a.href = urlObj;
@@ -143,7 +146,15 @@ export default function Home() {
     a.click();
     a.remove();
     window.URL.revokeObjectURL(urlObj);
-    setTimeout(() => setDownloading(false), 1000);
+    
+    // Remove from downloading files after a delay
+    setTimeout(() => {
+      setDownloadingFiles(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(info.filename);
+        return newSet;
+      });
+    }, 1000);
   }
 
   async function handleDropUrl(droppedUrl: string) {
@@ -265,7 +276,7 @@ export default function Home() {
               onDownload={() =>
                 handleManualDownload(downloadInfo.blob, downloadInfo.filename)
               }
-              downloading={downloading}
+              downloading={downloadingFiles.has(downloadInfo.filename)}
               theme={theme}
               downloadIcon={
                 <svg
@@ -301,11 +312,18 @@ export default function Home() {
           borderColor: currentTheme.primary,
           backgroundColor: "transparent",
         }}
-        onClick={() =>
-          downloadHistory.slice(1).forEach((item) =>
-            handleManualDownload(item.blob, item.filename)
-          )
-        }
+        onClick={() => {
+          // Process downloads one at a time with a small delay
+          const processDownloads = async () => {
+            for (const item of downloadHistory.slice(1)) {
+              await new Promise(resolve => {
+                handleManualDownload(item.blob, item.filename);
+                setTimeout(resolve, 500); // Small delay between downloads
+              });
+            }
+          };
+          processDownloads();
+        }}
       >
         Download All
       </Button>
@@ -322,9 +340,7 @@ export default function Home() {
           onDownload={() =>
             handleManualDownload(item.blob, item.filename)
           }
-          downloading={
-            downloading && item.filename === downloadInfo?.filename
-          }
+          downloading={downloadingFiles.has(item.filename)}
           theme={theme}
           downloadIcon={
             <svg
