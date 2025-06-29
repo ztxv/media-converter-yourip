@@ -47,7 +47,7 @@ export default function Home() {
     title: string;
     thumbnail: string;
   } | null>(null);
-  const [downloadingFiles, setDownloadingFiles] = useState<Set<string>>(new Set());
+  const [downloadingFile, setDownloadingFile] = useState<string | null>(null);
 
   // Paste-to-convert
   useEffect(() => {
@@ -134,10 +134,9 @@ export default function Home() {
   function handleManualDownload(blob?: Blob, filename?: string) {
     const info = blob && filename ? { blob, filename } : downloadInfo;
     if (!info) return;
-    
-    // Add to downloading files
-    setDownloadingFiles(prev => new Set([...prev, info.filename]));
-    
+
+    setDownloadingFile(info.filename);
+
     const urlObj = window.URL.createObjectURL(info.blob);
     const a = document.createElement("a");
     a.href = urlObj;
@@ -146,15 +145,8 @@ export default function Home() {
     a.click();
     a.remove();
     window.URL.revokeObjectURL(urlObj);
-    
-    // Remove from downloading files after a delay
-    setTimeout(() => {
-      setDownloadingFiles(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(info.filename);
-        return newSet;
-      });
-    }, 1000);
+
+    setTimeout(() => setDownloadingFile(null), 1000);
   }
 
   async function handleDropUrl(droppedUrl: string) {
@@ -234,16 +226,16 @@ export default function Home() {
             <DropZone onUrlDrop={handleDropUrl} theme={theme} />
 
             <Button
-  type="submit"
-  disabled={loading || !url}
-  className="w-full font-bold"
-  style={{
-    backgroundColor: currentTheme.primary,
-    color: theme === "green" ? "black" : "white",
-  }}
->
-  {loading ? "Converting..." : "Convert"}
-</Button>
+              type="submit"
+              disabled={loading || !url}
+              className="w-full font-bold"
+              style={{
+                backgroundColor: currentTheme.primary,
+                color: theme === "green" ? "black" : "white",
+              }}
+            >
+              {loading ? "Converting..." : "Convert"}
+            </Button>
             {loading && (
               <div className="flex justify-center mt-4 mb-2">
                 <span
@@ -276,7 +268,7 @@ export default function Home() {
               onDownload={() =>
                 handleManualDownload(downloadInfo.blob, downloadInfo.filename)
               }
-              downloading={downloadingFiles.has(downloadInfo.filename)}
+              downloading={downloadInfo.filename === downloadingFile}
               theme={theme}
               downloadIcon={
                 <svg
@@ -297,72 +289,71 @@ export default function Home() {
             />
           )}
 
-{/* Previous Downloads */}
-{downloadHistory.length > 1 && (
-  <div className="mt-8">
-    <div className="flex items-center justify-between mb-2">
-      <h3 className="text-lg font-semibold text-gray-400">
-        Previous Downloads
-      </h3>
-      <Button
-        // remove variant="outline"
-        className="border-2 px-3 py-1.5 rounded-md hover:bg-opacity-10 transition"
-        style={{
-          color: currentTheme.primary,
-          borderColor: currentTheme.primary,
-          backgroundColor: "transparent",
-        }}
-        onClick={() => {
-          // Process downloads one at a time with a small delay
-          const processDownloads = async () => {
-            for (const item of downloadHistory.slice(1)) {
-              await new Promise(resolve => {
-                handleManualDownload(item.blob, item.filename);
-                setTimeout(resolve, 500); // Small delay between downloads
-              });
-            }
-          };
-          processDownloads();
-        }}
-      >
-        Download All
-      </Button>
-    </div>
+          {/* Previous Downloads */}
+          {downloadHistory.length > 1 && (
+            <div className="mt-8">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-lg font-semibold text-gray-400">
+                  Previous Downloads
+                </h3>
+                <Button
+                  // remove variant="outline"
+                  className="border-2 px-3 py-1.5 rounded-md hover:bg-opacity-10 transition"
+                  style={{
+                    color: currentTheme.primary,
+                    borderColor: currentTheme.primary,
+                    backgroundColor: "transparent",
+                  }}
+                  onClick={() => {
+                    const processDownloads = async () => {
+                      for (const item of downloadHistory.slice(1)) {
+                        await new Promise((resolve) => {
+                          handleManualDownload(item.blob, item.filename);
+                          setTimeout(resolve, 1000); // Slightly longer delay between downloads
+                        });
+                      }
+                    };
+                    processDownloads();
+                  }}
+                >
+                  Download All
+                </Button>
+              </div>
 
-    <div
-      className="w-full bg-[#1a1a1a] p-4 rounded-lg max-h-64 overflow-y-auto resize-y"
-      style={{ boxShadow: `0 0 4px ${currentTheme.primary}80` }}
-    >
-      {downloadHistory.slice(1).map((item, idx) => (
-        <DownloadCard
-          key={idx}
-          {...item}
-          onDownload={() =>
-            handleManualDownload(item.blob, item.filename)
-          }
-          downloading={downloadingFiles.has(item.filename)}
-          theme={theme}
-          downloadIcon={
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              viewBox="0 0 24 24"
-              className="w-6 h-6"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 4v16m8-8H4"
-              />
-            </svg>
-          }
-        />
-      ))}
-    </div>
-  </div>
-)}
+              <div
+                className="w-full bg-[#1a1a1a] p-4 rounded-lg max-h-64 overflow-y-auto resize-y"
+                style={{ boxShadow: `0 0 4px ${currentTheme.primary}80` }}
+              >
+                {downloadHistory.slice(1).map((item, idx) => (
+                  <DownloadCard
+                    key={idx}
+                    {...item}
+                    onDownload={() =>
+                      handleManualDownload(item.blob, item.filename)
+                    }
+                    downloading={item.filename === downloadingFile}
+                    theme={theme}
+                    downloadIcon={
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                        viewBox="0 0 24 24"
+                        className="w-6 h-6"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M12 4v16m8-8H4"
+                        />
+                      </svg>
+                    }
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
 
         {/* Settings Button */}
