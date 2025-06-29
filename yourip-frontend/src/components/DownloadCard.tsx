@@ -9,7 +9,7 @@ interface DownloadCardProps {
   onDownload: () => void;
   downloading: boolean;
   downloadIcon?: React.ReactNode;
-  theme: 'red' | 'green';
+  theme: 'red' | 'green' | 'blue' | 'pink' | 'purple';
 }
 
 export default function DownloadCard({
@@ -22,7 +22,13 @@ export default function DownloadCard({
   theme
 }: DownloadCardProps) {
   return (
-    <Card className={`flex flex-row items-center gap-4 mt-4 p-3 bg-[#111] border-[#222] ${theme === 'green' ? 'hover:border-[#39FF14]' : 'hover:border-[#FF3131]'} transition-colors`}>
+    <Card className={`flex flex-row items-center gap-4 mt-4 p-3 bg-[#111] border-[#222] ${
+      theme === 'green' ? 'hover:border-[#39FF14]' :
+      theme === 'blue' ? 'hover:border-[#00F7FF]' :
+      theme === 'pink' ? 'hover:border-[#FF44CC]' :
+      theme === 'purple' ? 'hover:border-[#9D00FF]' :
+      'hover:border-[#FF3131]'
+    } transition-colors`}>
       <img 
         src={thumbnail} 
         alt={title} 
@@ -41,7 +47,13 @@ export default function DownloadCard({
       <Button 
         onClick={onDownload} 
         disabled={downloading} 
-        className={`ml-2 ${theme === 'green' ? 'bg-[#39FF14] hover:bg-[#39FF14CC] text-black' : 'bg-[#FF3131] hover:bg-[#FF3131CC] text-white'} font-medium`}
+        className={`ml-2 ${
+          theme === 'green' ? 'bg-[#39FF14] hover:bg-[#39FF14CC] text-black' :
+          theme === 'blue' ? 'bg-[#00F7FF] hover:bg-[#00F7FFCC] text-black' :
+          theme === 'pink' ? 'bg-[#FF44CC] hover:bg-[#FF44CCCC] text-white' :
+          theme === 'purple' ? 'bg-[#9D00FF] hover:bg-[#9D00FFCC] text-white' :
+          'bg-[#FF3131] hover:bg-[#FF3131CC] text-white'
+        } font-medium`}
       >
         {downloading ? (
           <span className="flex items-center gap-2">

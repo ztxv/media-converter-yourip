@@ -3,7 +3,7 @@ import { useRef, useState } from "react";
 
 interface DropZoneProps {
   onUrlDrop: (url: string) => void;
-  theme: 'red' | 'green';
+  theme: 'red' | 'green' | 'blue' | 'pink' | 'purple';
 }
 
 const themeColors = {
@@ -16,6 +16,21 @@ const themeColors = {
     primary: '#39FF14',
     hover: '#39FF14CC',
     shadow: '#39FF1440',
+  },
+  blue: {
+    primary: '#00F7FF',
+    hover: '#00F7FFCC',
+    shadow: '#00F7FF40',
+  },
+  pink: {
+    primary: '#FF44CC',
+    hover: '#FF44CCCC',
+    shadow: '#FF44CC40',
+  },
+  purple: {
+    primary: '#9D00FF',
+    hover: '#9D00FFCC',
+    shadow: '#9D00FF40',
   },
 };
 

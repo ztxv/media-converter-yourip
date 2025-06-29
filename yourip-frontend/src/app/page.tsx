@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import DropZone from "@/components/DropZone";
 import DownloadCard from "@/components/DownloadCard";
+import SettingsDrawer from "@/components/SettingsDrawer";
 
-type Theme = "red" | "green";
+type Theme = "red" | "green" | "blue" | "pink" | "purple";
 
 async function fetchYoutubeMeta(url: string) {
   try {
@@ -34,6 +35,9 @@ export default function Home() {
   const themeColors = {
     red: { primary: "#FF3131", hover: "#FF3131CC", shadow: "#FF313140" },
     green: { primary: "#39FF14", hover: "#39FF14CC", shadow: "#39FF1440" },
+    blue: { primary: "#00F7FF", hover: "#00F7FFCC", shadow: "#00F7FF40" },
+    pink: { primary: "#FF44CC", hover: "#FF44CCCC", shadow: "#FF44CC40" },
+    purple: { primary: "#9D00FF", hover: "#9D00FFCC", shadow: "#9D00FF40" },
   };
   const currentTheme = themeColors[theme];
 
@@ -218,6 +222,12 @@ export default function Home() {
               className={`bg-[#18181b] text-white border-2 rounded px-3 py-2 focus:outline-none focus:ring-2 ${
                 theme === "green"
                   ? "border-[#39FF14] focus:ring-[#39FF14]"
+                  : theme === "blue"
+                  ? "border-[#00F7FF] focus:ring-[#00F7FF]"
+                  : theme === "pink"
+                  ? "border-[#FF44CC] focus:ring-[#FF44CC]"
+                  : theme === "purple"
+                  ? "border-[#9D00FF] focus:ring-[#9D00FF]"
                   : "border-[#FF3131] focus:ring-[#FF3131]"
               }`}
               style={{ caretColor: currentTheme.primary }}
@@ -231,7 +241,7 @@ export default function Home() {
               className="w-full font-bold"
               style={{
                 backgroundColor: currentTheme.primary,
-                color: theme === "green" ? "black" : "white",
+                color: ["green", "blue"].includes(theme) ? "black" : "white",
               }}
             >
               {loading ? "Converting..." : "Convert"}
@@ -357,60 +367,35 @@ export default function Home() {
         </CardContent>
 
         {/* Settings Button */}
-        <button
-          className="absolute top-4 right-4 text-gray-400 hover:text-white"
-          onClick={() => setShowSettings((v) => !v)}
-        >
-          ⚙️
-        </button>
+        <div className="fixed bottom-8 right-8 z-30">
+          <button
+            className={`p-3 rounded-full transition-all transform hover:scale-110 shadow-lg ${
+              theme === 'green' ? 'bg-[#39FF14] hover:bg-[#39FF14CC] text-black' :
+              theme === 'blue' ? 'bg-[#00F7FF] hover:bg-[#00F7FFCC] text-black' :
+              theme === 'pink' ? 'bg-[#FF44CC] hover:bg-[#FF44CCCC] text-white' :
+              theme === 'purple' ? 'bg-[#9D00FF] hover:bg-[#9D00FFCC] text-white' :
+              'bg-[#FF3131] hover:bg-[#FF3131CC] text-white'
+            }`}
+            onClick={() => setShowSettings((v) => !v)}
+            aria-label="Settings"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </button>
+        </div>
 
         {/* Settings Menu */}
         {showSettings && (
-          <div className="absolute top-16 right-4 w-64 p-4 bg-[#111] border border-[#333] rounded-lg shadow-xl">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-white">Settings</h3>
-              <button
-                onClick={() => setShowSettings(false)}
-                className="text-[#999] hover:text-white"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-sm text-gray-300">Auto Download</span>
-              <Switch
-                checked={autoDownload}
-                onCheckedChange={setAutoDownload}
-                style={{
-                  backgroundColor: autoDownload
-                    ? currentTheme.primary
-                    : undefined,
-                }}
-              />
-            </div>
-
-            <div>
-              <div className="text-sm text-gray-300 mb-2">Theme</div>
-              <div className="flex gap-2">
-                {(["red", "green"] as Theme[]).map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => setTheme(t)}
-                    className={`px-3 py-1.5 text-sm rounded-md ${
-                      theme === t
-                        ? `bg-[${themeColors[t].primary}] text-${
-                            t === "green" ? "black" : "white"
-                          }`
-                        : "bg-[#333] text-white"
-                    }`}
-                  >
-                    {t.charAt(0).toUpperCase() + t.slice(1)}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+          <SettingsDrawer
+            open={showSettings}
+            onClose={() => setShowSettings(false)}
+            autoDownload={autoDownload}
+            setAutoDownload={setAutoDownload}
+            theme={theme}
+            setTheme={setTheme}
+          />
         )}
       </Card>
     </div>
