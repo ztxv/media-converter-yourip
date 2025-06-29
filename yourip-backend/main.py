@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import JSONResponse
 import subprocess
 import os
 import tempfile
@@ -29,13 +29,53 @@ def sanitize_filename(filename):
     filename = filename[:100]  # Limit to 100 chars
     return filename
 
+def extract_video_id(url: str) -> str:
+    """Extract video ID from various YouTube URL formats."""
+    # Handle youtu.be short URLs
+    if 'youtu.be/' in url:
+        video_id = url.split('youtu.be/')[-1].split('?')[0].split('&')[0]
+        return f'https://www.youtube.com/watch?v={video_id}'
+    
+    # Handle standard watch URLs with additional parameters
+    if 'youtube.com/watch' in url:
+        # Extract the 'v' parameter which contains the video ID
+        if 'v=' in url:
+            video_id = url.split('v=')[1].split('&')[0]
+            return f'https://www.youtube.com/watch?v={video_id}'
+    
+    # Handle youtu.be format without https
+    if 'youtu.be' in url:
+        video_id = url.split('youtu.be/')[-1].split('?')[0].split('&')[0]
+        return f'https://www.youtube.com/watch?v={video_id}'
+    
+    # If no matches found, return the original URL
+    return url
+
 @app.post("/api/download")
-async def download_mp3(request: DownloadRequest):
+async def download_mp3(request: dict):
     temp_file = None
     try:
-        url = request.url
-        print(f"Processing URL: {url}")
-        # Accept any YouTube link, do not validate or normalize
+        # Get URL from request
+        if not request or 'url' not in request:
+            raise HTTPException(status_code=400, detail="URL is required")
+            
+        raw_url = request['url'].strip()
+        if not raw_url:
+            raise HTTPException(status_code=400, detail="URL cannot be empty")
+            
+        print(f"Processing URL: {raw_url}")
+        
+        # Handle drag-and-drop text that might include extra quotes or spaces
+        url = raw_url.strip('\"\'')
+        
+        # Clean up the URL to handle various formats
+        url = extract_video_id(url)
+        print(f"Normalized URL: {url}")
+        
+        # Basic validation
+        if not url or ('youtube.com' not in url and 'youtu.be' not in url):
+            raise HTTPException(status_code=400, detail="Invalid YouTube URL")
+            
         # Create a temporary file with .mp3 extension
         temp_fd, temp_path = tempfile.mkstemp(suffix='.mp3')
         os.close(temp_fd)
@@ -62,17 +102,20 @@ async def download_mp3(request: DownloadRequest):
         output_filename = f"{safe_title}.mp3"
         output_path = os.path.join(os.path.dirname(temp_path), output_filename)
         
-        # Download the audio
+        # Download the audio with more robust options
         print("Downloading audio...")
         download_cmd = [
             "yt-dlp",
-            "-f",
-            "bestaudio[ext=m4a]/bestaudio/best",
+            "-f", "bestaudio[ext=m4a]/bestaudio/best",
             "--extract-audio",
-            "--audio-format",
-            "mp3",
-            "-o",
-            output_path,
+            "--audio-format", "mp3",
+            "--audio-quality", "0",  # Best quality
+            "--no-playlist",         # Only download single video, not playlist
+            "--ignore-errors",       # Continue on download errors
+            "--no-warnings",         # Suppress warnings
+            "--force-ipv4",          # Force IPv4
+            "--socket-timeout", "30",  # 30 second timeout
+            "-o", output_path,
             url
         ]
         download_result = subprocess.run(
@@ -95,14 +138,13 @@ async def download_mp3(request: DownloadRequest):
         
         print(f"Successfully downloaded to: {output_path}")
         
-        # Return the file with custom header for video title
-        headers = {"X-Video-Title": title}
-        return FileResponse(
-            path=output_path,
-            filename=output_filename,
-            media_type='audio/mpeg',
-            headers=headers
-        )
+        # Return success message without triggering download
+        return {
+            "status": "success",
+            "message": "Video converted to MP3 successfully",
+            "title": title,
+            "filename": output_filename
+        }
             
     except subprocess.CalledProcessError as e:
         error_msg = e.stderr or str(e)

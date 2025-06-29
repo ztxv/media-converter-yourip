@@ -39,9 +39,9 @@ export default function SettingsDrawer({
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="font-medium text-white">Auto-download</h4>
+              <h4 className="font-medium text-white">Switch</h4>
               <p className="text-sm text-[#999] mt-1">
-                Automatically download after conversion
+                simple switch
               </p>
             </div>
             <Switch 
