@@ -102,7 +102,12 @@ export default function Home() {
         if (!meta) throw new Error("Could not fetch video info");
         setVideoMeta(meta);
 
-        const res = await fetch("http://localhost:8000/api/download", {
+        // Use the current hostname to determine the backend URL
+        const backendHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+          ? '192.168.1.212:8000'  // Your computer's IP address
+          : `${window.location.hostname}:8000`;  // Use the same hostname as the frontend
+          
+        const res = await fetch(`http://${backendHost}/api/download`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ url: nextUrl }),
