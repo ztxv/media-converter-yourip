@@ -1,12 +1,12 @@
-# YT2MP3
+# YouRip.me
 
-Convert YouTube videos to MP3 audio files with a modern, fast, and user-friendly web app.
+Convert online videos to MP3 audio files with a modern, fast, and user-friendly web app.
 
 ---
 
 ## 🚀 Overview
 
-**YT2MP3** is a full-stack web application that allows users to easily convert YouTube videos to MP3 files. Built with a modern tech stack (Next.js, React, FastAPI, Python), it features a sleek UI, drag-and-drop support, and fast, reliable audio extraction using `yt-dlp`.
+**YouRip.me** is a full-stack web application that allows users to easily convert online videos to MP3 files. Built with a modern tech stack (Next.js, React, FastAPI, Python), it features a sleek UI, drag-and-drop support, and fast, reliable audio extraction using `yt-dlp`.
 
 ---
 
@@ -41,9 +41,9 @@ Convert YouTube videos to MP3 audio files with a modern, fast, and user-friendly
 
 ## ✨ Main Features
 
-- Paste or drag-and-drop YouTube links
+- Paste or drag-and-drop video links
 - Fetches video title and thumbnail
-- Converts YouTube videos to MP3 audio
+- Converts online videos to MP3 audio
 - Download progress and error handling
 - Download history
 - Theming (red/green), responsive design
