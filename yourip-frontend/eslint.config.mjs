@@ -11,6 +11,8 @@ const compat = new FlatCompat({
 
 const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
+  // Remote thumbnails are small and can fall back without an image proxy.
+  { rules: { "@next/next/no-img-element": "off" } },
 ];
 
 export default eslintConfig;

@@ -1,465 +1,266 @@
-// app/page.tsx (or pages/index.tsx)
 "use client";
-import { useState, useEffect } from "react";
-import { Input } from "@/components/ui/input";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AnimatePresence, MotionConfig, motion } from "motion/react";
+import { ArrowDownToLine, CircleAlert, Download, Film, Link2, ListMusic, LoaderCircle, Music2, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import DropZone from "@/components/DropZone";
+import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
 import DownloadCard from "@/components/DownloadCard";
-import SettingsDrawer from "@/components/SettingsDrawer";
+import DropZone from "@/components/DropZone";
+import SettingsDrawer, { themeColors, type AudioQuality, type Format, type Theme, type VideoQuality } from "@/components/SettingsDrawer";
 
-type Theme = "red" | "green" | "blue" | "pink" | "purple";
-
-interface VideoMeta {
+interface QueueItem {
   url: string;
   title: string;
-  thumbnail_url: string;
+  thumbnail: string;
+  format: Format;
+  audioQuality: AudioQuality;
+  videoQuality: VideoQuality;
+}
+interface DownloadItem { blob: Blob; filename: string; title: string; thumbnail: string }
+interface JobStatus { status: "preparing" | "downloading" | "processing" | "ready" | "error"; progress: number | null; error: string | null }
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+async function fetchMetadata(url: string): Promise<{ title: string; thumbnail_url: string } | null> {
+  try {
+    const response = await fetch(`/api/metadata?url=${encodeURIComponent(url)}`);
+    return response.ok ? await response.json() : null;
+  } catch { return null; }
 }
 
-async function fetchYoutubeMetaRaw(url: string) {
-  try {
-    const res = await fetch(
-      `https://www.youtube.com/oembed?url=${encodeURIComponent(
-        url
-      )}&format=json`
-    );
-    if (!res.ok) throw new Error("Could not fetch video info");
-    return (await res.json()) as { title: string; thumbnail_url: string };
-  } catch {
-    return null;
-  }
+async function readError(response: Response): Promise<string> {
+  try { const data = await response.json(); return typeof data.detail === "string" ? data.detail : "Conversion failed."; }
+  catch { return "Conversion failed. Check the terminal for details."; }
+}
+
+function filenameFromDisposition(header: string, fallback: string): string {
+  const encoded = header.match(/filename\*=utf-8''([^;]+)/i);
+  if (encoded) { try { return decodeURIComponent(encoded[1]); } catch {} }
+  return header.match(/filename="?([^";]+)"?/)?.[1] || fallback;
 }
 
 export default function Home() {
-  // CORE STATES
   const [url, setUrl] = useState("");
-  const [queue, setQueue] = useState<VideoMeta[]>([]);
-  const [current, setCurrent] = useState<VideoMeta | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // DOWNLOAD TRACKING
-  const [downloadInfo, setDownloadInfo] = useState<{
-    blob: Blob;
-    filename: string;
-    title: string;
-    thumbnail: string;
-  } | null>(null);
-  const [downloadHistory, setDownloadHistory] = useState<
-    Array<{ blob: Blob; filename: string; title: string; thumbnail: string }>
-  >([]);
-  const [downloadingFile, setDownloadingFile] = useState<string | null>(null);
-
-  // SETTINGS
-  const [showSettings, setShowSettings] = useState(false);
-  const [autoDownload, setAutoDownload] = useState(false);
+  const [format, setFormat] = useState<Format>("mp3");
+  const [audioQuality, setAudioQuality] = useState<AudioQuality>("high");
+  const [videoQuality, setVideoQuality] = useState<VideoQuality>("balanced");
   const [theme, setTheme] = useState<Theme>("red");
-
-  // TOS MODAL STATES
+  const [autoDownload, setAutoDownload] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [showTos, setShowTos] = useState(true);
   const [showTosDetail, setShowTosDetail] = useState(false);
+  const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [current, setCurrent] = useState<QueueItem | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [stage, setStage] = useState<JobStatus["status"]>("preparing");
+  const [progress, setProgress] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [history, setHistory] = useState<DownloadItem[]>([]);
+  const [downloadingFile, setDownloadingFile] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const pending = useRef(0);
+  const queueLength = useRef(0);
+  queueLength.current = queue.length;
 
-  const themeColors = {
-    red: { primary: "#FF3131", hover: "#FF3131CC", shadow: "#FF313140" },
-    green: { primary: "#39FF14", hover: "#39FF14CC", shadow: "#39FF1440" },
-    blue: { primary: "#00F7FF", hover: "#00F7FFCC", shadow: "#00F7FF40" },
-    pink: { primary: "#FF44CC", hover: "#FF44CCCC", shadow: "#FF44CC40" },
-    purple: { primary: "#9D00FF", hover: "#9D00FFCC", shadow: "#9D00FF40" },
-  } as const;
-  const currentTheme = themeColors[theme];
+  const enqueue = useCallback(async (raw: string, chosenFormat: Format, chosenAudio: AudioQuality, chosenVideo: VideoQuality) => {
+    if (queueLength.current + pending.current >= 5) { setError("Queue full. Wait until a slot frees up."); return; }
+    let videoUrl = raw.trim();
+    if (!videoUrl.startsWith("http")) videoUrl = `https://${videoUrl}`;
+    try {
+      const parsed = new URL(videoUrl);
+      if (!["http:", "https:"].includes(parsed.protocol) || !["youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be"].includes(parsed.hostname)) throw new Error();
+    } catch { setError("Paste a valid YouTube video link."); return; }
+    pending.current += 1;
+    setError(null);
+    try {
+      const meta = await fetchMetadata(videoUrl);
+      queueLength.current += 1;
+      setQueue(items => [...items, { url: videoUrl, title: meta?.title || "YouTube media", thumbnail: meta?.thumbnail_url || "/favicon.svg", format: chosenFormat, audioQuality: chosenAudio, videoQuality: chosenVideo }]);
+      setUrl("");
+    } finally { pending.current -= 1; }
+  }, []);
 
-  // PASTE-TO-CONVERT
   useEffect(() => {
-    const onPaste = (e: ClipboardEvent) => {
-      const text = e.clipboardData?.getData("Text")?.trim();
-      if (text && (/youtube\.com/.test(text) || /youtu\.be/.test(text))) {
-        attemptEnqueue(text);
-      }
+    const onPaste = (event: ClipboardEvent) => {
+      if (event.target instanceof HTMLElement && (event.target.closest("input, textarea, [data-dropzone]") || event.target.isContentEditable)) return;
+      const text = event.clipboardData?.getData("text/plain")?.trim();
+      if (text) void enqueue(text, format, audioQuality, videoQuality);
     };
     document.addEventListener("paste", onPaste);
     return () => document.removeEventListener("paste", onPaste);
-  }, [queue]);
+  }, [enqueue, format, audioQuality, videoQuality]);
 
-  // ENQUEUE WITH LIMIT
-  async function attemptEnqueue(raw: string) {
-    if (queue.length >= 5) {
-      setError("Queue full (max 5). Wait until a slot frees up.");
-      return;
-    }
-    let youtubeUrl = raw.trim();
-    if (!youtubeUrl.startsWith("http")) youtubeUrl = "https://" + youtubeUrl;
-    setError(null);
-
-    const meta = await fetchYoutubeMetaRaw(youtubeUrl);
-    if (!meta) {
-      setError("Invalid YouTube link or metadata fetch failed.");
-      return;
-    }
-
-    setQueue((q) => [
-      ...q,
-      { url: youtubeUrl, title: meta.title, thumbnail_url: meta.thumbnail_url },
-    ]);
-    setUrl("");
+  function triggerDownload(item: DownloadItem) {
+    setDownloadingFile(item.filename);
+    const objectUrl = URL.createObjectURL(item.blob);
+    const anchor = document.createElement("a");
+    anchor.href = objectUrl;
+    anchor.download = item.filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => { URL.revokeObjectURL(objectUrl); setDownloadingFile(null); }, 1000);
   }
 
-  // FORM SUBMIT
-  function handleConvert(e: React.FormEvent) {
-    e.preventDefault();
-    attemptEnqueue(url);
-  }
-
-  // PROCESS QUEUE
   useEffect(() => {
-    if (loading || queue.length === 0) return;
-
+    if (loading || !queue.length) return;
     const next = queue[0];
+    setQueue(items => items.slice(1));
     setCurrent(next);
-    setQueue((q) => q.slice(1));
     setLoading(true);
+    setStage("preparing");
+    setProgress(null);
     setError(null);
-
     (async () => {
       try {
-        const backendHost =
-          window.location.hostname === "localhost" ||
-          window.location.hostname === "127.0.0.1"
-            ? "192.168.1.212:8000"
-            : `${window.location.hostname}:8000`;
-
-        const res = await fetch(`http://${backendHost}/api/download`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: next.url }),
+        const created = await fetch("/api/jobs", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: next.url, format: next.format, audio_quality: next.audioQuality, video_quality: next.videoQuality }),
         });
-        if (!res.ok) {
-          const txt = await res.text();
-          throw new Error(txt || "Download failed");
+        if (!created.ok) throw new Error(await readError(created));
+        const { id } = await created.json() as { id: string };
+        for (;;) {
+          await sleep(600);
+          const response = await fetch(`/api/jobs/${encodeURIComponent(id)}`, { cache: "no-store" });
+          if (!response.ok) throw new Error(await readError(response));
+          const state = await response.json() as JobStatus;
+          setStage(state.status);
+          setProgress(state.progress);
+          if (state.status === "error") throw new Error(state.error || "Conversion failed.");
+          if (state.status === "ready") break;
         }
-        const blob = await res.blob();
-        const cd = res.headers.get("content-disposition") || "";
-        const m = cd.match(/filename="?(.+?)"?$/);
-        const filename =
-          m?.[1] ||
-          `${next.title}.mp3`.replace(/[^a-zA-Z0-9\-_\. ]/g, "_");
-
-        const info = {
-          blob,
-          filename,
-          title: next.title,
-          thumbnail: next.thumbnail_url,
-        };
-        setDownloadInfo(info);
-        setDownloadHistory((h) => [info, ...h]);
-        if (autoDownload) triggerDownload(blob, filename);
-      } catch (err: any) {
-        setError(err.message || "Something went wrong");
-      } finally {
-        setLoading(false);
-        setCurrent(null);
-      }
+        const response = await fetch(`/api/jobs/${encodeURIComponent(id)}/file`);
+        if (!response.ok) throw new Error(await readError(response));
+        const blob = await response.blob();
+        const filename = filenameFromDisposition(response.headers.get("content-disposition") || "", `${next.title}.${next.format}`);
+        const item: DownloadItem = { blob, filename, title: next.title, thumbnail: next.thumbnail };
+        setHistory(items => {
+          const entries = [item, ...items];
+          let bytes = 0;
+          return entries.filter((entry, index) => {
+            if (index > 0 && bytes + entry.blob.size > 300 * 1024 * 1024) return false;
+            bytes += entry.blob.size;
+            return true;
+          }).slice(0, 10);
+        });
+        if (autoDownload) triggerDownload(item);
+      } catch (cause) { setError(cause instanceof Error ? cause.message : "Something went wrong."); }
+      finally { setLoading(false); setCurrent(null); setProgress(null); }
     })();
   }, [queue, loading, autoDownload]);
 
-  function triggerDownload(blob: Blob, filename: string) {
-    setDownloadingFile(filename);
-    const urlObj = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = urlObj;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(urlObj);
-    setTimeout(() => setDownloadingFile(null), 1000);
-  }
-
-  async function handleDropUrl(droppedUrl: string) {
-    attemptEnqueue(droppedUrl);
-  }
-
+  const accent = themeColors[theme];
+  const accentSoft = `${accent}1c`;
   return (
-    <div
-      className="min-h-screen flex items-start justify-center bg-black pt-12"
-      style={{ fontFamily: "Poppins, Montserrat, Inter, Arial, sans-serif" }}
-    >
-      {/* MAIN CONTENT (blurs when TOS is open) */}
-      <div className={showTos ? "filter blur-sm transition-filter duration-200" : ""}>
-        <div className="w-full max-w-3xl text-white relative px-4">
-          {/* ASCII Logo */}
-          <div className="flex flex-col items-center mt-2 text-center">
-            <pre
-              className="text-[10px] md:text-xs font-mono whitespace-pre leading-3 md:leading-4 inline-block"
-              style={{
-                color: currentTheme.primary,
-                textShadow: `0 0 8px ${currentTheme.primary}, 0 0 16px ${currentTheme.primary}80`,
-              }}
-            >{String.raw`
-/$$     /$$                  /$$$$$$$  /$$          
-|  $$   /$$/                 | $$__  $$|__/          
-\  $$ /$$//$$$$$$  /$$   /$$| $$  \ $$ /$$  /$$$$$$ 
-\  $$$$//$$__  $$| $$  | $$| $$$$$$$/| $$ /$$__  $$
- \  $$/| $$  \ $$| $$  | $$| $$__  $$| $$| $$  \ $$
-  | $$ | $$  | $$| $$  | $$| $$  \ $$| $$| $$  | $$
-  | $$ |  $$$$$$/|  $$$$$$/| $$  | $$| $$| $$$$$$$/
-  |__/  \______/  \______/ |__/  |__/|__/| $$____/ 
-                                       | $$      
-                                       | $$      
-                                       |__/     `}</pre>
-          </div>
+    <MotionConfig reducedMotion="user">
+      <main className="min-h-screen bg-[#101012] text-zinc-100" style={{ "--accent": accent, "--accent-soft": accentSoft } as React.CSSProperties}>
+        <div className="mx-auto flex w-full max-w-[720px] flex-col px-4 pb-24 pt-10 sm:px-6 sm:pt-14">
+          <header className="relative flex flex-col items-center text-center">
+        <Button type="button" variant="ghost" size="icon" onClick={() => setShowSettings(true)} aria-label="Open settings" title="Settings"
+          className="absolute right-0 top-0 z-30 size-10 rounded-2xl border border-white/12 bg-[#242427] text-zinc-200 shadow-xl shadow-black/40 transition-[background-color,transform] hover:scale-105 hover:bg-[#303034] focus-visible:ring-2 focus-visible:ring-[var(--accent)] active:scale-95 motion-reduce:transition-none"><Settings2 aria-hidden size={19} strokeWidth={1.8} /></Button>
 
-          {/* INPUT & BUTTON */}
-          <div className="mt-6">
-            <form onSubmit={handleConvert} className="flex flex-col gap-4">
-              <Input
-                value={url}
-                onChange={(e) => {
-                  setUrl(e.target.value);
-                  setError(null);
-                }}
-                placeholder="Paste your YouTube URL"
-                disabled={loading}
-                required
-                className={`bg-[#18181b] text-white border-2 rounded px-3 py-2 focus:outline-none focus:ring-2 ${
-                  { green: "border-[#39FF14] focus:ring-[#39FF14]",
-                    blue: "border-[#00F7FF] focus:ring-[#00F7FF]",
-                    pink: "border-[#FF44CC] focus:ring-[#FF44CC]",
-                    purple: "border-[#9D00FF] focus:ring-[#9D00FF]",
-                    red: "border-[#FF3131] focus:ring-[#FF3131]" }[theme]
-                }`}
-                style={{ caretColor: currentTheme.primary }}
-              />
-              <DropZone onUrlDrop={handleDropUrl} theme={theme} />
-              <Button
-                type="submit"
-                disabled={loading || !url}
-                className="w-full font-bold"
-                style={{
-                  backgroundColor: currentTheme.primary,
-                  color: ["green", "blue"].includes(theme) ? "black" : "white",
-                }}
-              >
-                {loading ? "Processing…" : "Convert"}
-              </Button>
-              {error && !loading && (
-                <p className="text-destructive text-sm text-center mt-2">{error}</p>
-              )}
-            </form>
+            <div className="mb-5 rounded-full border border-white/10 bg-white/[0.035] px-3 py-1 font-mono text-[10px] font-medium uppercase tracking-[0.19em] text-zinc-400">Local media converter</div>
+            <pre aria-label="YouRip" className="ascii-logo select-none text-left font-mono font-bold leading-[1.1]" style={{ color: accent, textShadow: `0 0 28px ${accent}42` }}>{String.raw`
+░██     ░██                       ░█████████  ░██           
+ ░██   ░██                        ░██     ░██               
+  ░██ ░██    ░███████  ░██    ░██ ░██     ░██ ░██░████████  
+   ░████    ░██    ░██ ░██    ░██ ░█████████  ░██░██    ░██ 
+    ░██     ░██    ░██ ░██    ░██ ░██   ░██   ░██░██    ░██ 
+    ░██     ░██    ░██ ░██   ░███ ░██    ░██  ░██░███   ░██ 
+    ░██      ░███████   ░█████░██ ░██     ░██ ░██░██░█████  
+                                                 ░██        
+                                                 ░██        
+                                                            `}</pre>
+            <p className="mt-5 max-w-md text-sm leading-relaxed text-zinc-400">Your favorite videos, saved your way. Right here on your computer.</p>
+          </header>
 
-            {/* NOW CONVERTING & QUEUE */}
-            {(current || queue.length > 0) && (
-              <div className="mt-6 p-4 bg-gray-800 rounded text-white">
-                {current && (
-                  <div className="flex items-center mb-4">
-                    <img
-                      src={current.thumbnail_url}
-                      alt="thumb"
-                      className="w-12 h-12 mr-3 rounded"
-                    />
-                    <div className="flex-1">
-                      <p className="font-semibold">Now converting:</p>
-                      <p className="truncate max-w-md">{current.title}</p>
-                    </div>
-                    {loading && (
-                      <span
-                        className="inline-block animate-spin ml-4"
-                        style={{ width: 24, height: 24 }}
-                      >
-                        <svg viewBox="0 0 50 50" style={{ width: 24, height: 24 }}>
-                          <circle
-                            cx="25"
-                            cy="25"
-                            r="20"
-                            fill="none"
-                            stroke={currentTheme.primary}
-                            strokeWidth="5"
-                            strokeDasharray="90 150"
-                            strokeLinecap="round"
-                          />
-                        </svg>
-                      </span>
-                    )}
-                  </div>
-                )}
-                {queue.length > 0 && (
-                  <>
-                    <p className="font-semibold mb-2">Up next:</p>
-                    <ul className="space-y-2">
-                      {queue.map((vid, i) => (
-                        <li key={i} className="flex items-center">
-                          <img
-                            src={vid.thumbnail_url}
-                            alt="next thumb"
-                            className="w-8 h-8 mr-2 rounded"
-                          />
-                          <span className="truncate">{vid.title}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                )}
+          <section aria-label="Converter" className="mt-9 overflow-hidden rounded-[24px] border border-white/10 bg-[#171719] p-4 shadow-[0_28px_70px_rgba(0,0,0,0.28)] sm:p-6">
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-500">01 / Convert</p>
+                <h1 className="mt-1 text-lg font-semibold tracking-tight">Paste a YouTube link</h1>
               </div>
-            )}
-
-            {/* DOWNLOAD CARD */}
-            {downloadInfo && (
-              <DownloadCard
-                {...downloadInfo}
-                onDownload={() =>
-                  triggerDownload(downloadInfo.blob, downloadInfo.filename)
-                }
-                downloading={downloadInfo.filename === downloadingFile}
-                theme={theme}
-              />
-            )}
-
-            {/* PREVIOUS DOWNLOADS */}
-            {downloadHistory.length > 1 && (
-              <div className="mt-8">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-lg font-semibold text-gray-400">
-                    Previous Downloads
-                  </h3>
-                  <Button
-                    className="border-2 px-3 py-1.5 rounded-md hover:bg-opacity-10 transition"
-                    style={{
-                      color: currentTheme.primary,
-                      borderColor: currentTheme.primary,
-                      backgroundColor: "transparent",
-                    }}
-                    onClick={() => {
-                      downloadHistory
-                        .slice(1)
-                        .forEach((it, idx) =>
-                          setTimeout(
-                            () => triggerDownload(it.blob, it.filename),
-                            idx * 1000
-                          )
-                        );
-                    }}
-                  >
-                    Download All
+              <div className="relative flex rounded-[13px] border border-white/10 bg-[#0e0e10] p-1" role="group" aria-label="Download format">
+                {(["mp3", "mp4"] as Format[]).map(choice => (
+                  <Button key={choice} type="button" variant="ghost" aria-pressed={format === choice} onClick={() => setFormat(choice)}
+                    className="relative z-0 h-9 min-w-[91px] rounded-[10px] bg-transparent px-3 text-xs font-semibold tracking-wide text-zinc-400 shadow-none hover:bg-transparent hover:text-white focus-visible:ring-2 focus-visible:ring-[var(--accent)] aria-pressed:text-white">
+                    {format === choice && <motion.span layoutId="format-pill" transition={{ type: "spring", stiffness: 440, damping: 34 }} className="absolute inset-0 -z-10 rounded-[9px] border border-white/12 bg-[#333337]" />}
+                    {choice === "mp3" ? <Music2 aria-hidden size={16} strokeWidth={1.8} /> : <Film aria-hidden size={16} strokeWidth={1.8} />}
+                    {choice.toUpperCase()}
                   </Button>
-                </div>
-                <div className="w-full bg-[#1a1a1a] p-4 rounded-lg max-h-64 overflow-y-auto resize-y">
-                  {downloadHistory.slice(1).map((item, idx) => (
-                    <DownloadCard
-                      key={idx}
-                      {...item}
-                      onDownload={() => triggerDownload(item.blob, item.filename)}
-                      downloading={item.filename === downloadingFile}
-                      theme={theme}
-                    />
-                  ))}
-                </div>
+                ))}
               </div>
+            </div>
+            <form onSubmit={event => { event.preventDefault(); void enqueue(url, format, audioQuality, videoQuality); }} className="space-y-3">
+              <div className="relative">
+                <Link2 aria-hidden size={17} strokeWidth={1.8} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
+                <Input ref={inputRef} value={url} onChange={event => { setUrl(event.target.value); setError(null); }} placeholder="https://www.youtube.com/watch?v=…" aria-label="YouTube video URL" required
+                  className="h-12 rounded-xl border-white/12 bg-[#101012] pl-11 pr-4 text-sm text-zinc-100 placeholder:text-zinc-600 focus-visible:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent-soft)]" />
+              </div>
+              <DropZone onUrlDrop={value => void enqueue(value, format, audioQuality, videoQuality)} onActivate={() => inputRef.current?.focus()} />
+              <div className="flex flex-wrap items-center justify-between gap-2 py-0.5 text-xs text-zinc-500">
+                <span>{format === "mp3" ? `MP3 · ${audioQuality === "standard" ? "128" : audioQuality === "high" ? "192" : "320"} kbps` : `MP4 · up to ${videoQuality === "compact" ? "480" : videoQuality === "balanced" ? "720" : "1080"}p`}</span>
+                <button type="button" onClick={() => setShowSettings(true)} className="rounded text-zinc-400 underline decoration-white/20 underline-offset-4 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]">Adjust quality</button>
+              </div>
+              <Button type="submit" disabled={!url.trim()} className="h-11 w-full rounded-xl text-sm font-semibold shadow-none transition-[filter,transform] hover:brightness-110 active:scale-[0.99] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[#171719] motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-45"
+                style={{ backgroundColor: accent, color: theme === "green" || theme === "blue" ? "#111" : "#fff" }}>
+                <ArrowDownToLine aria-hidden size={17} strokeWidth={1.9} />{loading ? "Add to queue" : `Convert to ${format.toUpperCase()}`}
+              </Button>
+              {error && <p role="alert" className="flex items-start gap-2 rounded-xl border border-rose-400/20 bg-rose-400/8 px-3.5 py-3 text-sm leading-snug text-rose-200"><CircleAlert aria-hidden size={17} strokeWidth={1.8} className="mt-0.5 shrink-0" />{error}</p>}
+            </form>
+          </section>
+
+          <AnimatePresence mode="popLayout">
+            {(current || queue.length > 0) && (
+              <motion.section key="queue" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.2 }} aria-label="Conversion queue" className="mt-5 rounded-[20px] border border-white/10 bg-[#171719] p-4 sm:p-5">
+                <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-zinc-400"><ListMusic aria-hidden size={16} strokeWidth={1.8} /> Queue</div>
+                {current && <div>
+                  <div className="flex min-w-0 items-center gap-3">
+                    <img src={current.thumbnail} alt="" className="size-11 shrink-0 rounded-xl bg-zinc-800 object-cover" />
+                    <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium" title={current.title}>{current.title}</p><p className="mt-0.5 text-xs text-zinc-400">{current.format.toUpperCase()} · {stage === "preparing" ? "Finding video" : stage === "processing" ? "Preparing file" : stage === "ready" ? "Finishing" : "Downloading"}</p></div>
+                    <LoaderCircle aria-hidden size={18} strokeWidth={1.8} className="animate-spin text-[var(--accent)] motion-reduce:animate-none" />
+                  </div>
+                  <div className="mt-4 flex items-center justify-between text-xs text-zinc-400"><span>{stage === "downloading" ? "Current transfer" : stage === "processing" ? "Converting and merging" : "Getting ready"}</span><span className="font-mono tabular-nums">{progress === null ? "—" : `${Math.round(progress)}%`}</span></div>
+                  <Progress value={progress ?? undefined} aria-label="Current transfer progress" className="job-progress mt-2 h-1.5 bg-white/10 [&_[data-slot=progress-indicator]]:bg-[var(--accent)]" />
+                </div>}
+                {queue.length > 0 && <div className={`${current ? "mt-5 border-t border-white/8 pt-4" : ""} space-y-2`}>
+                  <p className="mb-2 text-xs text-zinc-500">Up next · {queue.length}</p>
+                  {queue.map((item, index) => <div key={`${item.url}-${index}`} className="flex items-center gap-2 text-sm text-zinc-300">
+                    {item.format === "mp3" ? <Music2 aria-hidden size={15} strokeWidth={1.8} className="shrink-0 text-zinc-500" /> : <Film aria-hidden size={15} strokeWidth={1.8} className="shrink-0 text-zinc-500" />}
+                    <span className="min-w-0 flex-1 truncate">{item.title}</span><span className="text-xs text-zinc-500">{item.format.toUpperCase()}</span>
+                  </div>)}
+                </div>}
+              </motion.section>
             )}
-          </div>
+          </AnimatePresence>
 
-          {/* SETTINGS BUTTON */}
-          <div className="fixed bottom-8 right-8 z-30">
-            <button
-              onClick={() => setShowSettings((v) => !v)}
-              aria-label="Settings"
-              className={`p-3 rounded-full transition-all transform hover:scale-110 shadow-lg ${
-                { green: "bg-[#39FF14] hover:bg-[#39FF14CC] text-black",
-                  blue: "bg-[#00F7FF] hover:bg-[#00F7FFCC] text-black",
-                  pink: "bg-[#FF44CC] hover:bg-[#FF44CCCC] text-white",
-                  purple: "bg-[#9D00FF] hover:bg-[#9D00FFCC] text-white",
-                  red: "bg-[#FF3131] hover:bg-[#FF3131CC] text-white" }[theme]
-              }`}
-            >
-              {/* SVG gear icon */}
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37z"/>
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-              </svg>
-            </button>
-          </div>
-
-          {showSettings && (
-            <SettingsDrawer
-              open={showSettings}
-              onClose={() => setShowSettings(false)}
-              autoDownload={autoDownload}
-              setAutoDownload={setAutoDownload}
-              theme={theme}
-              setTheme={setTheme}
-            />
-          )}
+          {history.length > 0 && <section aria-label="Completed downloads" className="mt-7 space-y-3">
+            <div className="flex items-center justify-between"><h2 className="text-sm font-semibold text-zinc-300">Ready to save</h2><span className="font-mono text-xs text-zinc-500">{history.length} {history.length === 1 ? "file" : "files"}</span></div>
+            {history.map((item, index) => <DownloadCard key={`${item.filename}-${index}`} {...item} onDownload={() => triggerDownload(item)} downloading={downloadingFile === item.filename} />)}
+            {history.length > 1 && <Button type="button" variant="ghost" onClick={() => history.forEach((item, index) => setTimeout(() => triggerDownload(item), index * 900))} className="h-9 w-full rounded-xl text-xs text-zinc-400 hover:bg-white/5 hover:text-white focus-visible:ring-[var(--accent)]"><Download aria-hidden size={15} strokeWidth={1.8} />Download all</Button>}
+          </section>}
+          <footer className="mt-12 text-center font-mono text-[11px] text-zinc-600">Made for your own media. Runs locally on your computer.</footer>
         </div>
-      </div>
 
-      {/* TERMS OF SERVICE MODAL */}
-      {showTos && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-filter backdrop-blur-sm z-50 p-4">
-          <div className="bg-[#1a1a1a] text-white rounded-lg shadow-xl max-w-md w-full max-h-[80vh] overflow-y-auto">
-            {/* BRIEF PROMPT */}
-            {!showTosDetail && (
-              <div className="p-6 space-y-6">
-                <h2 className="text-xl font-semibold text-center">
-                  By using this site you agree to our Terms of Service
-                </h2>
-                <div className="flex gap-4">
-                  <button
-                    onClick={() => setShowTos(false)}
-                    className="flex-1 py-2 border-2 border-gray-400 rounded text-gray-300 hover:border-gray-200 hover:text-white font-medium"
-                  >
-                    I Agree
-                  </button>
-                  <button
-                    onClick={() => setShowTosDetail(true)}
-                    className="flex-1 py-2 border-2 border-gray-400 rounded text-gray-300 hover:border-gray-200 hover:text-white font-medium"
-                  > 
-                    View Terms
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* DETAILED TOS */}
-            {showTosDetail && (
-              <div className="p-6 space-y-4">
-                <h2 className="text-xl font-semibold mb-4 text-center">
-                  Terms of Service
-                </h2>
-                <div className="text-sm space-y-4 max-h-[60vh] overflow-y-auto">
-                  <p>
-                    <strong>1. Acceptable Use</strong><br/>
-                    This service is provided for personal, non-commercial use only. You may only convert videos that you own or have permission to download.
-                  </p>
-                  <p>
-                    <strong>2. Copyright Notice</strong><br/>
-                    This tool is for downloading content you have rights to. Downloading copyrighted material without permission is prohibited.
-                  </p>
-                  <p>
-                    <strong>3. Fair Use</strong><br/>
-                    You agree to use this service in compliance with all applicable laws, including copyright laws and YouTube's Terms of Service.
-                  </p>
-                  <p>
-                    <strong>4. No Warranty</strong><br/>
-                    This service is provided "as is" without any warranties. We are not responsible for any damages resulting from its use.
-                  </p>
-                  <p>
-                    <strong>5. Limitation of Liability</strong><br/>
-                    We are not liable for any damages, losses, or legal consequences resulting from misuse of this service.
-                  </p>
-                  <p>
-                    <strong>6. Changes to Terms</strong><br/>
-                    We reserve the right to modify these terms at any time. Continued use constitutes acceptance of changes.
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowTos(false)}
-                  className="w-full mt-6 py-2 bg-[#FF3131] hover:bg-[#E62929] rounded text-white font-bold transition-colors"
-                >
-                  I Agree
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
+        <AnimatePresence>{showSettings && <SettingsDrawer onClose={() => setShowSettings(false)} autoDownload={autoDownload} setAutoDownload={setAutoDownload} theme={theme} setTheme={setTheme} format={format} audioQuality={audioQuality} setAudioQuality={setAudioQuality} videoQuality={videoQuality} setVideoQuality={setVideoQuality} />}</AnimatePresence>
+        <AnimatePresence>{showTos && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+          <motion.div role="dialog" aria-modal="true" aria-labelledby="terms-title" initial={{ opacity: 0, y: 12, scale: 0.985 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8 }} transition={{ duration: 0.2 }} className="w-full max-w-[440px] rounded-[22px] border border-white/10 bg-[#19191c] p-6 shadow-2xl shadow-black/70">
+            <h2 id="terms-title" className="text-lg font-semibold tracking-tight">Use YouRip responsibly</h2>
+            <p className="mt-3 text-sm leading-relaxed text-zinc-400">Convert videos you own or have permission to download. You&apos;re responsible for following the applicable site terms and copyright rules.</p>
+            {showTosDetail && <div className="mt-4 max-h-[45vh] space-y-3 overflow-y-auto rounded-xl border border-white/8 bg-[#121214] p-4 text-xs leading-relaxed text-zinc-400">
+              <p><strong className="text-zinc-200">Acceptable use.</strong> Personal, non-commercial use for content you own or have permission to download.</p>
+              <p><strong className="text-zinc-200">Copyright.</strong> Do not download copyrighted content without permission. Follow applicable laws and YouTube&apos;s Terms of Service.</p>
+              <p><strong className="text-zinc-200">No warranty.</strong> This local tool is provided as is, without warranties. You are responsible for how you use it.</p>
+            </div>}
+            <div className="mt-6 flex gap-2.5">
+              <Button type="button" variant="outline" onClick={() => setShowTosDetail(value => !value)} className="h-10 flex-1 rounded-xl border-white/12 bg-transparent text-zinc-200 hover:bg-white/5 hover:text-white focus-visible:ring-[var(--accent)]">{showTosDetail ? "Hide terms" : "View terms"}</Button>
+              <Button type="button" onClick={() => setShowTos(false)} className="h-10 flex-1 rounded-xl font-semibold hover:brightness-110 focus-visible:ring-[var(--accent)]" style={{ backgroundColor: accent, color: theme === "green" || theme === "blue" ? "#111" : "#fff" }}>I agree</Button>
+            </div>
+          </motion.div>
+        </motion.div>}</AnimatePresence>
+      </main>
+    </MotionConfig>
   );
 }

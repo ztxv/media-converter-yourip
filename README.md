@@ -1,127 +1,113 @@
-# YouRip.me
+# YouRip
 
-Convert online videos to MP3 audio files with a modern, fast, and user-friendly web app.
+A local web app for saving YouTube videos as MP3 audio or MP4 video. Paste a link, choose a format and quality, watch download progress, and save the finished file from your browser.
 
----
+Built with Next.js, React, FastAPI, yt-dlp, and FFmpeg. The interface and converter run on your own computer.
 
-## 🚀 Overview
+## Quick start
 
-**YouRip.me** is a full-stack web application that allows users to easily convert online videos to MP3 files. Built with a modern tech stack (Next.js, React, FastAPI, Python), it features a sleek UI, drag-and-drop support, and fast, reliable audio extraction using `yt-dlp`.
+Install the prerequisites once, download or clone this repository, then run this command **inside the `YT2MP3` project folder**:
 
----
-
-## 🛠️ Tech Stack
-
-- **Frontend:** [Next.js](https://nextjs.org/) (React, TypeScript, Tailwind CSS, Radix UI)
-- **Backend:** [FastAPI](https://fastapi.tiangolo.com/) (Python), [yt-dlp](https://github.com/yt-dlp/yt-dlp)
-- **Styling:** [Tailwind CSS](https://tailwindcss.com/)
-- **UI Components:** [Radix UI](https://www.radix-ui.com/)
-
----
-
-## 📦 Architecture
-
-```
-[User Browser]
-     │
-     ▼
-[Frontend: Next.js/React]
-     │  (POST /api/download)
-     ▼
-[Backend: FastAPI + yt-dlp]
-     │
-     ▼
-[YouTube] → [MP3 File Returned]
+```sh
+npm start
 ```
 
-- **Frontend**: Handles user input, fetches video metadata, and interacts with the backend API.
-- **Backend**: Receives YouTube URLs, uses `yt-dlp` to extract and convert audio, and streams the MP3 file back to the frontend.
+The launcher creates an isolated Python environment, installs the project dependencies on first launch, and starts both servers. Open **[http://127.0.0.1:3000](http://127.0.0.1:3000)** when the terminal says YouRip is ready. If that port is busy, the launcher selects another available port—use the link printed in your terminal.
 
----
+Press **Ctrl+C** in that terminal to stop both servers. Future launches use the same command and reuse installed dependencies. An internet connection is required for initial setup and YouTube downloads.
 
-## ✨ Main Features
+### macOS
 
-- Paste or drag-and-drop video links
-- Fetches video title and thumbnail
-- Converts online videos to MP3 audio
-- Download progress and error handling
-- Download history
-- Theming (red/green), responsive design
-- Settings drawer for user preferences
+Install [Homebrew](https://brew.sh/) if needed, then:
 
----
-
-## 📑 API Documentation
-
-### `POST /api/download`
-
-**Description:**
-Converts a YouTube video to MP3 and returns the audio file.
-
-**Request Body:**
-```json
-{
-  "url": "https://www.youtube.com/watch?v=VIDEO_ID"
-}
+```sh
+brew install node python ffmpeg
 ```
 
-**Response:**
-- `200 OK`: Returns the MP3 file as a binary stream. Sets `X-Video-Title` header to the video title.
-- `400 Bad Request`: Invalid URL or download error.
-- `500 Internal Server Error`: Unexpected server error.
+For this checkout on a Mac, navigate to the project folder before starting:
 
-**Example cURL:**
-```bash
-curl -X POST http://localhost:8000/api/download \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}' \
-  --output video.mp3
+```sh
+cd "/path/to/yourip.me/YT2MP3"
+npm start
 ```
 
----
+Replace the example path with the location where you saved the project. No Python environment activation or second terminal is required.
 
-## 🗂️ Project Structure
+### Windows
 
-```
-yt2mp3/
-  ├── yt2mp3-frontend/   # Next.js frontend (React, TypeScript, Tailwind CSS)
-  └── yt2mp3-backend/    # FastAPI backend (Python, yt-dlp)
-```
+Install Node.js 22 or newer, Python 3.10 or newer, and FFmpeg. With Windows Package Manager:
 
----
-
-## 🏁 Getting Started
-
-### Prerequisites
-- Node.js (v18+ recommended)
-- Python 3.8+
-- [yt-dlp](https://github.com/yt-dlp/yt-dlp) installed and available in PATH
-
-### Frontend
-```bash
-cd yt2mp3-frontend
-npm install
-npm run dev
-```
-Visit [http://localhost:3000](http://localhost:3000)
-
-### Backend
-```bash
-cd yt2mp3-backend
-pip install -r requirements.txt
-uvicorn main:app --reload
+```powershell
+winget install --id OpenJS.NodeJS.LTS -e
+winget install --id Python.Python.3.13 -e
+winget install --id Gyan.FFmpeg -e
 ```
 
----
+Reopen PowerShell after installation, navigate to the project folder, and run `npm start`. The launcher supports the Windows Python launcher (`py`) as well as `python`.
 
-## 📚 Learn More
-- [Next.js Documentation](https://nextjs.org/docs)
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [yt-dlp Documentation](https://github.com/yt-dlp/yt-dlp#readme)
-- [Tailwind CSS Documentation](https://tailwindcss.com/docs)
-- [Radix UI Documentation](https://www.radix-ui.com/docs)
+### Linux
 
----
+Install Node.js 22 or newer, Python 3.10 or newer with its `venv` support, and FFmpeg using your distribution's packages or the projects' official installers. Then run `npm start` from the project folder.
 
-## 📝 License
-MIT 
+## Features
+
+- Convert a single YouTube video to MP3 or MP4, including short links and Shorts links.
+- Choose MP3 bitrate (128, 192, or 320 kbps) or an MP4 resolution cap (480p, 720p, or 1080p).
+- See actual transfer progress while yt-dlp downloads each media stream; post-processing shows a separate preparation state.
+- Queue up to five waiting videos while a conversion runs.
+- Drag links onto the page, or paste into the input and select **Convert**.
+- See titles and thumbnails when YouTube metadata is available.
+- Enable automatic downloads and choose an accent color in Settings.
+- Download recent results again during the current session.
+
+Recent downloads are kept in browser memory, with a limit of ten results and a 300 MB budget for older results. Refreshing the page clears the queue, history, and settings. Playlist downloads and saved libraries are not implemented. Output quality depends on what the source video provides.
+
+## Updating the downloader
+
+YouTube changes regularly. If previously working videos stop converting, stop the app and run:
+
+```sh
+npm run update:downloader
+npm start
+```
+
+This updates yt-dlp and its supporting packages inside the project's Python environment. It does not change your system Python packages.
+
+## Troubleshooting
+
+| Problem | What to do |
+| --- | --- |
+| `npm` is not found | Install Node.js 22 or newer and reopen the terminal. |
+| Python is missing or too old | Install Python 3.10 or newer. On macOS, run `brew install python`. |
+| FFmpeg is missing | Install FFmpeg and reopen the terminal so it is available on your PATH. |
+| The app opens on a different port | Another app is using the usual port. Open the exact link printed by the launcher. |
+| Conversion fails | Read the converter error in the terminal, try a public video, and update the downloader. Private, age-restricted, region-restricted, and sign-in-required videos may not work. |
+| A long video fails | Downloads are limited to 250 MB where the source reports its size; conversions time out after ten minutes. Try a shorter video. |
+| Dependencies need a fresh install | Stop the app, delete `.venv` and `.local-state` from the project folder, then run `npm start`. |
+
+## Development
+
+```sh
+npm start                  # Install dependencies if needed and run both servers
+npm run check              # TypeScript and ESLint checks (after initial setup)
+npm test                   # Run converter regression tests (after initial setup)
+npm run build              # Verify the frontend production build
+npm run update:downloader  # Update the YouTube extraction engine
+```
+
+The local launcher binds both services to `127.0.0.1`. Next.js serves the interface on port 3000 and forwards conversion requests to FastAPI on port 8000 by default; occupied ports are skipped automatically. The browser uses the same origin for API calls, so no private IP address or CORS configuration is required.
+
+The backend reports download-job progress, streams the finished MP3 or MP4, and removes its temporary files after delivery. It uses the project's Python environment for yt-dlp and the installed Node.js runtime for YouTube's JavaScript challenges. Fonts are local system fonts, so building the interface does not fetch Google Fonts.
+
+```text
+YT2MP3/
+├── scripts/dev.mjs       # Setup, startup, readiness checks, and shutdown
+├── yourip-frontend/      # Next.js interface and API forwarding
+├── yourip-backend/       # FastAPI converter and Python dependencies
+├── package.json         # Commands run from the project root
+└── README.md
+```
+
+Use YouRip for content you own or have permission to download.
+
+Interface assets use [Lucide icons](https://lucide.dev/) (ISC), [shadcn/ui components](https://ui.shadcn.com/) (MIT) built on [Radix Primitives](https://www.radix-ui.com/primitives) (MIT), and [Motion for React](https://motion.dev/docs/react) (MIT).

@@ -1,182 +1,96 @@
 "use client";
+
+import { motion } from "motion/react";
+import { Check, X } from "lucide-react";
+import Image from "next/image";
+import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { useState, useRef, useEffect } from "react";
+import QualitySelect from "@/components/QualitySelect";
 
-type Theme = 'red' | 'green' | 'blue' | 'pink' | 'purple';
+export type Theme = "red" | "green" | "blue" | "pink" | "purple";
+export type Format = "mp3" | "mp4";
+export type AudioQuality = "standard" | "high" | "best";
+export type VideoQuality = "compact" | "balanced" | "best";
 
-interface Position {
-  x: number;
-  y: number;
-}
+export const themeColors: Record<Theme, string> = {
+  red: "#f65a5a", green: "#61d981", blue: "#68baff", pink: "#f68bc9", purple: "#ba9aff",
+};
 
-export default function SettingsDrawer({
-  open,
-  onClose,
-  autoDownload,
-  setAutoDownload,
-  theme,
-  setTheme,
-}: {
-  open: boolean;
+export default function SettingsDrawer({ onClose, autoDownload, setAutoDownload, theme, setTheme, format, audioQuality, setAudioQuality, videoQuality, setVideoQuality }: {
   onClose: () => void;
   autoDownload: boolean;
-  setAutoDownload: (v: boolean) => void;
+  setAutoDownload: (value: boolean) => void;
   theme: Theme;
   setTheme: (theme: Theme) => void;
+  format: Format;
+  audioQuality: AudioQuality;
+  setAudioQuality: (quality: AudioQuality) => void;
+  videoQuality: VideoQuality;
+  setVideoQuality: (quality: VideoQuality) => void;
 }) {
-  const [position, setPosition] = useState<Position>({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragOffset, setDragOffset] = useState<Position>({ x: 0, y: 0 });
-  const modalRef = useRef<HTMLDivElement>(null);
-
-  // Center the modal when it opens
-  useEffect(() => {
-    if (open && modalRef.current) {
-      const { width, height } = modalRef.current.getBoundingClientRect();
-      setPosition({
-        x: (window.innerWidth - width) / 2,
-        y: (window.innerHeight - height) / 2,
-      });
-    }
-  }, [open]);
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget || e.currentTarget.closest('button')) {
-      return; // Don't drag if clicking on buttons or other interactive elements
-    }
-    
-    setIsDragging(true);
-    setDragOffset({
-      x: e.clientX - position.x,
-      y: e.clientY - position.y,
-    });
-  };
-
-  const handleMouseMove = (e: MouseEvent) => {
-    if (!isDragging) return;
-    
-    setPosition({
-      x: e.clientX - dragOffset.x,
-      y: e.clientY - dragOffset.y,
-    });
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  useEffect(() => {
-    if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-      return () => {
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-      };
-    }
-  }, [isDragging, dragOffset]);
-
-  const themeColors = {
-    red: { primary: '#FF3131', hover: '#FF3131CC', text: 'white' },
-    green: { primary: '#39FF14', hover: '#39FF14CC', text: 'black' },
-    blue: { primary: '#00F7FF', hover: '#00F7FFCC', text: 'black' },
-    pink: { primary: '#FF44CC', hover: '#FF44CCCC', text: 'white' },
-    purple: { primary: '#9D00FF', hover: '#9D00FFCC', text: 'white' },
-  };
-  
-  const currentTheme = themeColors[theme];
-  if (!open) return null;
-
   return (
-    <div 
-      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center"
-      onClick={onClose}
-    >
-      <div 
-        ref={modalRef}
-        className="relative bg-[#111] rounded-xl shadow-2xl w-96 max-w-[90vw] max-h-[90vh] overflow-y-auto"
-        style={{ 
-          border: `1px solid ${currentTheme.primary}`,
-          transform: `translate(${position.x}px, ${position.y}px)`,
-          cursor: isDragging ? 'grabbing' : 'default',
-          transition: isDragging ? 'none' : 'transform 0.2s ease-out'
-        }}
-        onClick={(e) => e.stopPropagation()}
-        onMouseDown={handleMouseDown}
-      >
-        <div 
-          className="flex items-center justify-between p-6 pb-4 cursor-move"
-          onMouseDown={handleMouseDown}
-        >
-          <h3 className="text-xl font-bold text-white select-none">Settings</h3>
-          <button 
-            onClick={onClose}
-            className="text-[#999] hover:text-white transition-colors p-1 -mr-2"
-            aria-label="Close settings"
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
+    <motion.div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-3 backdrop-blur-sm sm:items-center" onClick={onClose}
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+      <motion.aside role="dialog" aria-modal="true" aria-labelledby="settings-title" onClick={event => event.stopPropagation()}
+        initial={{ opacity: 0, y: 14, scale: 0.985 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.985 }}
+        transition={{ duration: 0.2, ease: "easeOut" }} className="w-full max-w-[440px] overflow-hidden rounded-[22px] border border-white/10 bg-[#151518] text-white shadow-2xl shadow-black/70">
+        <div className="flex items-center justify-between border-b border-white/8 px-5 py-4 sm:px-6">
+          <div>
+            <h2 id="settings-title" className="text-base font-semibold tracking-tight">Settings</h2>
+            <p className="mt-0.5 text-xs text-zinc-400">Make each download yours.</p>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button asChild variant="ghost" size="icon" className="size-9 text-zinc-400 hover:bg-white/8 hover:text-white" title="View project on GitHub">
+              <a href="https://github.com/ztxv/media-converter-yourip" target="_blank" rel="noopener noreferrer" aria-label="View project source on GitHub">
+                <Image src="/github-invertocat-white.svg" alt="" aria-hidden width={20} height={20} className="opacity-75" />
+              </a>
+            </Button>
+            <Button type="button" variant="ghost" size="icon" className="size-9 text-zinc-400 hover:bg-white/8 hover:text-white" onClick={onClose} aria-label="Close settings"><X aria-hidden size={19} strokeWidth={1.8} /></Button>
+          </div>
         </div>
-        
-        <div className="px-6 pb-6 space-y-6">
-          <div className="flex items-center justify-between">
+        <div className="max-h-[min(75vh,620px)] space-y-6 overflow-y-auto px-5 py-5 sm:px-6">
+          <div className="flex items-center justify-between gap-5">
             <div>
-              <h4 className="font-medium text-white">Automatic Downloads</h4>
-              <p className="text-sm text-[#999] mt-1">
-                auto download after conversion
+              <label htmlFor="auto-download" className="text-sm font-medium">Automatic downloads</label>
+              <p className="mt-1 text-xs leading-relaxed text-zinc-400">Save the file as soon as it is ready.</p>
+            </div>
+            <Switch id="auto-download" checked={autoDownload} onCheckedChange={setAutoDownload} className="data-[state=checked]:bg-[var(--accent)]" />
+          </div>
+          <div className="space-y-3 border-t border-white/8 pt-5">
+            <div>
+              <h3 className="text-sm font-medium">{format === "mp3" ? "Audio quality" : "Video quality"}</h3>
+              <p className="mt-1 text-xs leading-relaxed text-zinc-400">
+                {format === "mp3" ? "Higher bitrate usually means a larger MP3. It cannot improve the original audio." : "Choose a maximum resolution. Actual quality depends on the source video."}
               </p>
             </div>
-            <Switch 
-              checked={autoDownload} 
-              onCheckedChange={setAutoDownload}
-              style={{
-                backgroundColor: autoDownload ? currentTheme.primary : undefined,
-              }}
-            />
+            {format === "mp3" ? (
+              <QualitySelect id="audio-quality" label="MP3 bitrate" value={audioQuality} onChange={value => setAudioQuality(value as AudioQuality)} options={[
+                { value: "standard", label: "Standard · 128 kbps", detail: "Smaller file" },
+                { value: "high", label: "High · 192 kbps", detail: "Balanced · recommended" },
+                { value: "best", label: "Best · 320 kbps", detail: "Larger file" },
+              ]} />
+            ) : (
+              <QualitySelect id="video-quality" label="Maximum resolution" value={videoQuality} onChange={value => setVideoQuality(value as VideoQuality)} options={[
+                { value: "compact", label: "Up to 480p", detail: "Smaller file" },
+                { value: "balanced", label: "Up to 720p", detail: "Balanced · recommended" },
+                { value: "best", label: "Up to 1080p", detail: "Higher detail, larger file" },
+              ]} />
+            )}
           </div>
-          
-          <div className="pt-4 border-t border-[#222]">
-            <div 
-              className="flex items-center gap-3 text-sm text-[#999] transition-colors cursor-pointer"
-              onMouseOver={(e) => (e.currentTarget.style.color = currentTheme.primary)}
-              onMouseOut={(e) => (e.currentTarget.style.color = '#999')}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z" stroke="currentColor" strokeWidth="1.5"/>
-                <path d="M19.4 15C19.2669 15.3016 19.227 15.6362 19.286 15.9606C19.3449 16.285 19.5005 16.5843 19.73 16.82L19.79 16.88C19.906 16.9962 19.9968 17.1355 20.0569 17.2895C20.117 17.4434 20.1452 17.6087 20.14 17.775C20.127 18.0824 20.0223 18.3798 19.8403 18.6288C19.6583 18.8777 19.4078 19.0669 19.1235 19.1715C18.8392 19.2761 18.5353 19.2918 18.2425 19.2166C17.9497 19.1414 17.6822 18.9784 17.476 18.75L17.41 18.68C17.1746 18.4505 16.8753 18.2949 16.5509 18.2359C16.2265 18.177 15.8919 18.2169 15.59 18.35C15.286 18.485 15.027 18.7 14.8431 18.9685C14.6593 19.237 14.5575 19.5486 14.55 19.868C14.545 20.0984 14.4895 20.325 14.3874 20.5326C14.2853 20.7401 14.1388 20.9238 13.9586 21.0708C13.7785 21.2179 13.5689 21.3251 13.3456 21.3854C13.1223 21.4457 12.8906 21.4578 12.6625 21.421C12.4344 21.3842 12.2156 21.299 12.0228 21.1708C11.83 21.0426 11.6679 20.8741 11.5483 20.6775C11.4287 20.4809 11.3544 20.2609 11.33 20.033C11.2968 19.7158 11.3543 19.395 11.4958 19.109C11.6373 18.823 11.857 18.5838 12.128 18.421C12.396 18.257 12.698 18.1502 13.01 18.11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              <span>Help & Support</span>
-            </div>
-          </div>
-
-          {/* Theme Selector */}
-          <div className="pt-4 border-t border-[#222]">
-            <h4 className="text-sm text-gray-300 mb-3">Theme</h4>
-            <div className="flex flex-wrap gap-2">
-              {(Object.keys(themeColors) as Theme[]).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setTheme(t)}
-                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                    theme === t
-                      ? `bg-[${themeColors[t].primary}] text-${themeColors[t].text}`
-                      : 'bg-[#333] text-white'
-                  }`}
-                  style={{
-                    backgroundColor: theme === t ? themeColors[t].primary : undefined,
-                    color: theme === t ? themeColors[t].text : 'white',
-                  }}
-                >
-                  {t.charAt(0).toUpperCase() + t.slice(1)}
+          <div className="border-t border-white/8 pt-5">
+            <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-400">Accent color</p>
+            <div className="flex gap-2" role="group" aria-label="Accent color">
+              {(Object.keys(themeColors) as Theme[]).map(color => (
+                <button key={color} type="button" onClick={() => setTheme(color)} aria-label={`${color} accent`} aria-pressed={theme === color}
+                  className="flex size-9 items-center justify-center rounded-full border border-transparent outline-none transition-transform hover:scale-110 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#151518] aria-pressed:border-white/80 motion-reduce:transition-none"
+                  style={{ backgroundColor: themeColors[color] }}>
+                  {theme === color && <Check aria-hidden size={16} strokeWidth={2.3} className="text-black/80" />}
                 </button>
               ))}
             </div>
           </div>
         </div>
-      </div>
-      
-    </div>
+      </motion.aside>
+    </motion.div>
   );
 }

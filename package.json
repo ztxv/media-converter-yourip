@@ -1,0 +1,17 @@
+{
+  "name": "yourip",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Run YouRip locally with one command.",
+  "scripts": {
+    "start": "node scripts/dev.mjs",
+    "dev": "node scripts/dev.mjs",
+    "update:downloader": "node scripts/dev.mjs --update-downloader",
+    "check": "npm --prefix yourip-frontend run typecheck && npm --prefix yourip-frontend run lint",
+    "build": "npm --prefix yourip-frontend run build",
+    "test": "node scripts/test.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
