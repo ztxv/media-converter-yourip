@@ -96,7 +96,7 @@ async function main() {
   run(python, ['-m', 'uvicorn', 'main:app', '--host', '127.0.0.1', '--port', String(backendPort)], { cwd: backend })
     .then(() => stop(), error => { if (!stopping) console.error(error.message); stop(1); });
   await ready(`${backendUrl}/api/health`);
-  run(process.execPath, [join(frontend, 'node_modules', 'next', 'dist', 'bin', 'next'), 'dev', '--hostname', '127.0.0.1', '--port', String(frontendPort)], { cwd: frontend, env: { ...process.env, NEXT_TELEMETRY_DISABLED: '1', YOURIP_BACKEND_URL: backendUrl } })
+  run(process.execPath, [join(frontend, 'node_modules', 'next', 'dist', 'bin', 'next'), 'dev', '--hostname', '127.0.0.1', '--port', String(frontendPort)], { cwd: frontend, env: { ...process.env, NEXT_TELEMETRY_DISABLED: '1', YOURIP_BACKEND_URL: backendUrl, NEXT_PUBLIC_YOURIP_DEMO: 'false' } })
     .then(() => stop(), error => { if (!stopping) console.error(error.message); stop(1); });
   await ready(frontendUrl);
   console.log(`\nYouRip is ready: ${frontendUrl}\nPress Ctrl+C to stop both servers.\n`);
