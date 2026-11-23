@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import DownloadCard from "@/components/DownloadCard";
 import DropZone from "@/components/DropZone";
+import { api } from "@/lib/converter-api.select";
+import type { JobStatus } from "@/lib/converter-api";
 import SettingsDrawer, { themeColors, type AudioQuality, type Format, type Theme, type VideoQuality } from "@/components/SettingsDrawer";
 
 interface QueueItem {
@@ -19,27 +21,17 @@ interface QueueItem {
   videoQuality: VideoQuality;
 }
 interface DownloadItem { blob: Blob; filename: string; title: string; thumbnail: string }
-interface JobStatus { status: "preparing" | "downloading" | "processing" | "ready" | "error"; progress: number | null; error: string | null }
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-async function fetchMetadata(url: string): Promise<{ title: string; thumbnail_url: string } | null> {
-  try {
-    const response = await fetch(`/api/metadata?url=${encodeURIComponent(url)}`);
-    return response.ok ? await response.json() : null;
-  } catch { return null; }
-}
-
-async function readError(response: Response): Promise<string> {
-  try { const data = await response.json(); return typeof data.detail === "string" ? data.detail : "Conversion failed."; }
-  catch { return "Conversion failed. Check the terminal for details."; }
-}
-
-function filenameFromDisposition(header: string, fallback: string): string {
-  const encoded = header.match(/filename\*=utf-8''([^;]+)/i);
-  if (encoded) { try { return decodeURIComponent(encoded[1]); } catch {} }
-  return header.match(/filename="?([^";]+)"?/)?.[1] || fallback;
-}
+/*
+ * Build-time demo flag (see next.config.ts). Written as a literal expression so the bundler folds it and removes
+ * the branch that is not taken: the demo-only interface is absent from the normal bundle, and the real download
+ * code is absent from the demo bundle.
+ */
+/* eslint-disable @typescript-eslint/no-require-imports */
+const demoUi: typeof import("@/components/demo/DemoUi") | null = process.env.NEXT_PUBLIC_YOURIP_DEMO === "true" ? require("@/components/demo/DemoUi") : null;
+/* eslint-enable @typescript-eslint/no-require-imports */
 
 export default function Home() {
   const [url, setUrl] = useState("");
@@ -59,6 +51,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<DownloadItem[]>([]);
   const [downloadingFile, setDownloadingFile] = useState<string | null>(null);
+  const [demoNotice, setDemoNotice] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const pending = useRef(0);
   const queueLength = useRef(0);
@@ -75,7 +68,7 @@ export default function Home() {
     pending.current += 1;
     setError(null);
     try {
-      const meta = await fetchMetadata(videoUrl);
+      const meta = await api.fetchMetadata(videoUrl);
       queueLength.current += 1;
       setQueue(items => [...items, { url: videoUrl, title: meta?.title || "YouTube media", thumbnail: meta?.thumbnail_url || "/favicon.svg", format: chosenFormat, audioQuality: chosenAudio, videoQuality: chosenVideo }]);
       setUrl("");
@@ -93,6 +86,7 @@ export default function Home() {
   }, [enqueue, format, audioQuality, videoQuality]);
 
   function triggerDownload(item: DownloadItem) {
+    if (process.env.NEXT_PUBLIC_YOURIP_DEMO === "true") { setDemoNotice(value => value + 1); return; }
     setDownloadingFile(item.filename);
     const objectUrl = URL.createObjectURL(item.blob);
     const anchor = document.createElement("a");
@@ -115,26 +109,16 @@ export default function Home() {
     setError(null);
     (async () => {
       try {
-        const created = await fetch("/api/jobs", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: next.url, format: next.format, audio_quality: next.audioQuality, video_quality: next.videoQuality }),
-        });
-        if (!created.ok) throw new Error(await readError(created));
-        const { id } = await created.json() as { id: string };
+        const id = await api.createJob({ url: next.url, format: next.format, audio_quality: next.audioQuality, video_quality: next.videoQuality });
         for (;;) {
           await sleep(600);
-          const response = await fetch(`/api/jobs/${encodeURIComponent(id)}`, { cache: "no-store" });
-          if (!response.ok) throw new Error(await readError(response));
-          const state = await response.json() as JobStatus;
+          const state: JobStatus = await api.getJob(id);
           setStage(state.status);
           setProgress(state.progress);
           if (state.status === "error") throw new Error(state.error || "Conversion failed.");
           if (state.status === "ready") break;
         }
-        const response = await fetch(`/api/jobs/${encodeURIComponent(id)}/file`);
-        if (!response.ok) throw new Error(await readError(response));
-        const blob = await response.blob();
-        const filename = filenameFromDisposition(response.headers.get("content-disposition") || "", `${next.title}.${next.format}`);
+        const { blob, filename } = await api.fetchFile(id, `${next.title}.${next.format}`);
         const item: DownloadItem = { blob, filename, title: next.title, thumbnail: next.thumbnail };
         setHistory(items => {
           const entries = [item, ...items];
@@ -156,6 +140,7 @@ export default function Home() {
   return (
     <MotionConfig reducedMotion="user">
       <main className="min-h-screen bg-[#101012] text-zinc-100" style={{ "--accent": accent, "--accent-soft": accentSoft } as React.CSSProperties}>
+        {demoUi && <demoUi.DemoBanner />}
         <div className="mx-auto flex w-full max-w-[720px] flex-col px-4 pb-24 pt-10 sm:px-6 sm:pt-14">
           <header className="relative flex flex-col items-center text-center">
         <Button type="button" variant="ghost" size="icon" onClick={() => setShowSettings(true)} aria-label="Open settings" title="Settings"
@@ -200,6 +185,7 @@ export default function Home() {
                   className="h-12 rounded-xl border-white/12 bg-[#101012] pl-11 pr-4 text-sm text-zinc-100 placeholder:text-zinc-600 focus-visible:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent-soft)]" />
               </div>
               <DropZone onUrlDrop={value => void enqueue(value, format, audioQuality, videoQuality)} onActivate={() => inputRef.current?.focus()} />
+              {demoUi && <demoUi.DemoSamples onPick={value => void enqueue(value, format, audioQuality, videoQuality)} />}
               <div className="flex flex-wrap items-center justify-between gap-2 py-0.5 text-xs text-zinc-500">
                 <span>{format === "mp3" ? `MP3 · ${audioQuality === "standard" ? "128" : audioQuality === "high" ? "192" : "320"} kbps` : `MP4 · up to ${videoQuality === "compact" ? "480" : videoQuality === "balanced" ? "720" : "1080"}p`}</span>
                 <button type="button" onClick={() => setShowSettings(true)} className="rounded text-zinc-400 underline decoration-white/20 underline-offset-4 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]">Adjust quality</button>
@@ -244,6 +230,7 @@ export default function Home() {
           <footer className="mt-12 text-center font-mono text-[11px] text-zinc-600">Made for your own media. Runs locally on your computer.</footer>
         </div>
 
+        {demoUi && <demoUi.DemoToast nonce={demoNotice} onDismiss={() => setDemoNotice(0)} />}
         <AnimatePresence>{showSettings && <SettingsDrawer onClose={() => setShowSettings(false)} autoDownload={autoDownload} setAutoDownload={setAutoDownload} theme={theme} setTheme={setTheme} format={format} audioQuality={audioQuality} setAudioQuality={setAudioQuality} videoQuality={videoQuality} setVideoQuality={setVideoQuality} />}</AnimatePresence>
         <AnimatePresence>{showTos && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
           <motion.div role="dialog" aria-modal="true" aria-labelledby="terms-title" initial={{ opacity: 0, y: 12, scale: 0.985 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8 }} transition={{ duration: 0.2 }} className="w-full max-w-[440px] rounded-[22px] border border-white/10 bg-[#19191c] p-6 shadow-2xl shadow-black/70">

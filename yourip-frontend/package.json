@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint src",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "dev:demo": "node scripts/demo.mjs dev",
+    "build:demo": "node scripts/demo.mjs build"
   },
   "dependencies": {
     "@radix-ui/react-progress": "^1.1.7",

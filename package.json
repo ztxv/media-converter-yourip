@@ -9,7 +9,9 @@
     "update:downloader": "node scripts/dev.mjs --update-downloader",
     "check": "npm --prefix yourip-frontend run typecheck && npm --prefix yourip-frontend run lint",
     "build": "npm --prefix yourip-frontend run build",
-    "test": "node scripts/test.mjs"
+    "test": "node scripts/test.mjs",
+    "dev:demo": "npm --prefix yourip-frontend run dev:demo",
+    "build:demo": "npm --prefix yourip-frontend run build:demo"
   },
   "engines": {
     "node": ">=22"
