@@ -1,4 +1,4 @@
-# YouRip
+# YouRip | YT Media Converter
 
 A local web app for saving YouTube videos as MP3 audio or MP4 video. Paste a link, choose a format and quality, watch download progress, and save the finished file from your browser.
 
