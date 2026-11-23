@@ -17,19 +17,22 @@ The backend lives in `yourip-backend/` and is not part of the Next build at all.
 
 ## Vercel settings
 
-Use the repository `ztxv/media-converter-yourip` and set these in **Project Settings**:
+Two setups work. Both pin the demo build, so the real app can't be deployed by accident.
+
+**A. Drag and drop, or deploy the whole repo (root `vercel.json`).** Drop the repository folder (the one containing `yourip-frontend`, `yourip-backend`, and `package.json`) onto Vercel, or import the GitHub repo with Root Directory left blank. The root `vercel.json` sets:
 
 | Setting | Value |
 | --- | --- |
-| Root Directory | `yourip-frontend` |
-| Framework Preset | Next.js (detected automatically) |
-| Build Command | leave default, `vercel.json` sets `npm run build:demo` |
-| Install Command | leave default, `vercel.json` sets `npm ci` |
-| Output Directory | leave default, `vercel.json` sets `out` |
-| Node.js Version | 22.x |
-| Environment Variables | none required |
+| Install Command | `npm --prefix yourip-frontend ci` |
+| Build Command | `npm run build:demo` |
+| Output Directory | `yourip-frontend/out` |
+| Framework Preset | Other (`"framework": null`) |
 
-`Root Directory = yourip-frontend` is the most robust option: the build only sees the frontend and its lockfile, and the `vercel.json` in that folder is picked up. It also means Vercel never installs or runs anything from `yourip-backend/`. A repo-root alternative (a root `vercel.json` with `installCommand: "npm --prefix yourip-frontend ci"` and `outputDirectory: "yourip-frontend/out"`) works too but needs more settings to stay correct, so it is not used here.
+**B. Deploy only the frontend (`yourip-frontend/vercel.json`).** Drop the `yourip-frontend` folder itself, or import the repo with **Root Directory = `yourip-frontend`**. That folder's `vercel.json` sets the Next.js preset, `npm ci`, `npm run build:demo`, and `out`.
+
+In both cases set **Node.js Version** to 22.x and leave Environment Variables empty. Before dragging a folder you've used locally, delete `node_modules`, `.next`, and `out` from it (Vercel installs its own dependencies, and uploading them is slow).
+
+Setup B only builds the frontend. Setup A uploads the backend source too, but nothing builds or runs it, and the verifier fails the build if anything from it ends up in the output.
 
 Do **not** set `YOURIP_BACKEND_URL` on this project. It is not used by the demo build, and the verifier fails the build if it appears in the output.
 
