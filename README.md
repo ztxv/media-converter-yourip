@@ -16,8 +16,8 @@ Built with Next.js, React, FastAPI, yt-dlp, and FFmpeg. The interface and conver
 Install the prerequisites for your system (see below), then clone the repository and start it from the repository folder:
 
 ```sh
-git clone https://github.com/ztxv/media-converter-yourip.git
-cd media-converter-yourip
+git clone https://github.com/ztxv/yt-media-converter.git
+cd yt-media-converter
 npm start
 ```
 
@@ -106,7 +106,7 @@ The local launcher binds both services to `127.0.0.1`. Next.js serves the interf
 The backend reports download-job progress, streams the finished MP3 or MP4, and removes its temporary files after delivery. It uses the project's Python environment for yt-dlp and the installed Node.js runtime for YouTube's JavaScript challenges. Fonts are local system fonts, so building the interface does not fetch Google Fonts.
 
 ```text
-media-converter-yourip/
+yt-media-converter/
 ├── scripts/dev.mjs       # Setup, startup, readiness checks, and shutdown
 ├── yourip-frontend/      # Next.js interface and API forwarding (also builds the demo)
 ├── yourip-backend/       # FastAPI converter and Python dependencies

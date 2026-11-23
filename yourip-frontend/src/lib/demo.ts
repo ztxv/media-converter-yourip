@@ -9,5 +9,5 @@
  */
 export const IS_DEMO = process.env.NEXT_PUBLIC_YOURIP_DEMO === "true";
 
-export const REPO_URL = "https://github.com/ztxv/media-converter-yourip";
+export const REPO_URL = "https://github.com/ztxv/yt-media-converter";
 export const QUICK_START_URL = `${REPO_URL}#quick-start`;

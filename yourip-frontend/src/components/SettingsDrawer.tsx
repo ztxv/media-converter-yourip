@@ -41,7 +41,7 @@ export default function SettingsDrawer({ onClose, autoDownload, setAutoDownload,
           </div>
           <div className="flex items-center gap-1">
             <Button asChild variant="ghost" size="icon" className="size-9 text-zinc-400 hover:bg-white/8 hover:text-white" title="View project on GitHub">
-              <a href="https://github.com/ztxv/media-converter-yourip" target="_blank" rel="noopener noreferrer" aria-label="View project source on GitHub">
+              <a href="https://github.com/ztxv/yt-media-converter" target="_blank" rel="noopener noreferrer" aria-label="View project source on GitHub">
                 <Image src="/github-invertocat-white.svg" alt="" aria-hidden width={20} height={20} className="opacity-75" />
               </a>
             </Button>
