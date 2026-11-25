@@ -13,7 +13,7 @@ if (!existsSync(join(out, 'index.html'))) {
 }
 
 // 1. The deployable directory must be static assets only: no server code or API route output.
-const allowed = new Set(['.html', '.js', '.css', '.txt', '.ico', '.svg', '.png', '.json', '.map', '.woff', '.woff2']);
+const allowed = new Set(['.html', '.js', '.css', '.txt', '.ico', '.svg', '.png', '.json', '.webmanifest', '.map', '.woff', '.woff2']);
 const files = [];
 (function walk(dir) {
   for (const name of readdirSync(dir)) {
@@ -39,7 +39,7 @@ const forbidden = [
   [/\/api\/(jobs|metadata)/, 'converter API path'],
   [/i\.ytimg\.com|img\.youtube\.com/i, 'YouTube image host'],
 ];
-const text = new Set(['.html', '.js', '.css', '.txt', '.json', '.svg']);
+const text = new Set(['.html', '.js', '.css', '.txt', '.json', '.webmanifest', '.svg']);
 for (const file of files) {
   const rel = relative(out, file).replaceAll('\\', '/');
   if (!text.has(rel.slice(rel.lastIndexOf('.')).toLowerCase())) continue;

@@ -1,0 +1,99 @@
+<!doctype html>
+<!--
+  Source for public/og-image.png, the link-preview card shown by iMessage, Slack, Discord, X and LinkedIn.
+  It must be exactly 1200x630. Re-render from yourip-frontend/ after `npm ci` (fonts load from node_modules):
+
+    node -e "const { chromium } = require('playwright'); (async () => { const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 1200, height: 630 } }); await p.goto('file://' + process.cwd() + '/scripts/og-image.html'); await p.evaluate(() => document.fonts.ready); await p.screenshot({ path: 'public/og-image.png' }); await b.close(); })()"
+
+  Playwright is not a dependency of this project; use any Playwright or Chromium you already have.
+  The motif is drawn with the app's own UI vocabulary and uses no real or sample results.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<style>
+  /* Geist ships inside Next.js, so no extra dependency or network font is needed. */
+  @font-face { font-family: 'Geist'; src: url('../node_modules/next/dist/next-devtools/server/font/geist-latin.woff2') format('woff2'); font-weight: 100 900; }
+  @font-face { font-family: 'Geist Mono'; src: url('../node_modules/next/dist/next-devtools/server/font/geist-mono-latin.woff2') format('woff2'); font-weight: 100 900; }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 1200px; height: 630px; overflow: hidden; }
+  body {
+    position: relative; color: #f4f4f5; font-family: 'Geist', Arial, Helvetica, sans-serif;
+    background:
+      radial-gradient(760px 460px at 0% 0%, rgba(255, 77, 79, 0.22), transparent 70%),
+      radial-gradient(640px 420px at 100% 100%, rgba(104, 186, 255, 0.10), transparent 70%),
+      #101012;
+  }
+  /* Left column: 64px safe margin */
+  .left { position: absolute; left: 64px; top: 64px; width: 590px; height: 502px; display: flex; flex-direction: column; }
+  .brand { display: flex; align-items: center; gap: 18px; }
+  .brand svg { width: 68px; height: 68px; flex: none; }
+  .brand b { font-weight: 800; font-size: 44px; letter-spacing: -0.03em; }
+  .pill { font-family: 'Geist Mono', monospace; font-weight: 600; font-size: 17px; letter-spacing: 0.16em; text-transform: uppercase; padding: 6px 14px; border-radius: 999px; border: 1.5px solid rgba(255, 77, 79, 0.55); background: rgba(255, 77, 79, 0.14); color: #ff6f70; margin-left: 4px; }
+  h1 { font-weight: 800; font-size: 76px; line-height: 1.03; letter-spacing: -0.04em; margin-top: 56px; }
+  h1 span { color: #ff4d4f; }
+  p.sub { margin-top: 26px; font-size: 27px; line-height: 1.4; color: #b4b4bd; max-width: 560px; }
+  .foot { margin-top: auto; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .chip { font-family: 'Geist Mono', monospace; font-weight: 600; font-size: 19px; padding: 8px 15px; border-radius: 999px; border: 1.5px solid; white-space: nowrap; }
+  /* Chip colors are the app's own accent options */
+  .c1 { color: #f68bc9; background: rgba(246, 139, 201, 0.12); border-color: rgba(246, 139, 201, 0.4); }
+  .c2 { color: #ba9aff; background: rgba(186, 154, 255, 0.12); border-color: rgba(186, 154, 255, 0.4); }
+  .c3 { color: #68baff; background: rgba(104, 186, 255, 0.12); border-color: rgba(104, 186, 255, 0.4); }
+  .c4 { color: #61d981; background: rgba(97, 217, 129, 0.12); border-color: rgba(97, 217, 129, 0.4); }
+
+  /* Right: tilted product motif, kept inside the 64px margin */
+  .stage { position: absolute; left: 708px; top: 64px; width: 428px; height: 502px; }
+  .card { position: absolute; border-radius: 26px; background: #171719; border: 2px solid rgba(255, 255, 255, 0.12); box-shadow: 0 34px 70px rgba(0, 0, 0, 0.55), 0 6px 16px rgba(0, 0, 0, 0.35); }
+  .back { width: 340px; height: 300px; right: 18px; top: 34px; transform: rotate(6deg); background: #1c1c1f; border-color: rgba(255, 255, 255, 0.08); }
+  .main { width: 372px; left: 14px; top: 78px; transform: rotate(-4deg); padding: 22px; }
+  .eyebrow { font-family: 'Geist Mono', monospace; font-weight: 600; font-size: 14px; letter-spacing: 0.15em; text-transform: uppercase; color: #71717a; }
+  .top-row { display: flex; align-items: center; justify-content: space-between; }
+  .title { display: block; margin-top: 8px; font-weight: 700; font-size: 25px; letter-spacing: -0.02em; }
+  .seg { display: flex; padding: 4px; border-radius: 13px; background: #0e0e10; border: 1.5px solid rgba(255, 255, 255, 0.1); }
+  .seg i { font-style: normal; font-weight: 700; font-size: 14px; padding: 8px 14px; border-radius: 9px; color: #a1a1aa; }
+  .seg i.on { background: #333337; color: #fff; }
+  .input { margin-top: 16px; height: 48px; border-radius: 13px; background: #101012; border: 1.5px solid rgba(255, 255, 255, 0.12); display: flex; align-items: center; gap: 10px; padding: 0 14px; font-size: 16px; color: #52525b; white-space: nowrap; overflow: hidden; }
+  .input svg { width: 18px; height: 18px; flex: none; color: #71717a; }
+  .btn { margin-top: 14px; height: 48px; border-radius: 13px; background: #ff4d4f; color: #fff; font-weight: 700; font-size: 18px; display: flex; align-items: center; justify-content: center; gap: 9px; }
+  .btn svg { width: 19px; height: 19px; }
+  .queue { width: 300px; right: 10px; bottom: 16px; transform: rotate(3deg); padding: 16px 18px 18px; background: #1a1a1d; }
+  .q-head { font-family: 'Geist Mono', monospace; font-weight: 600; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: #a1a1aa; }
+  .q-row { display: flex; align-items: center; gap: 13px; margin-top: 13px; }
+  .thumb { width: 46px; height: 46px; border-radius: 13px; flex: none; background: linear-gradient(135deg, #2b0f54, #e0448f); }
+  .lines { flex: 1; }
+  .lines u { display: block; height: 10px; border-radius: 5px; background: rgba(255, 255, 255, 0.28); text-decoration: none; }
+  .lines u + u { width: 55%; margin-top: 9px; background: rgba(255, 255, 255, 0.13); }
+  .spin { width: 22px; height: 22px; border-radius: 50%; border: 3px solid rgba(255, 77, 79, 0.25); border-top-color: #ff4d4f; flex: none; }
+  .bar { margin-top: 16px; height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+  .bar i { display: block; width: 62%; height: 100%; border-radius: 4px; background: #ff4d4f; }
+</style>
+</head>
+<body>
+  <div class="left">
+    <div class="brand">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#18181b"/><circle cx="32" cy="32" r="26" fill="#ff4d4f"/><g fill="none" stroke="#fff" stroke-width="5.6" stroke-linejoin="miter" stroke-miterlimit="4"><path d="M15.5 21.5 L22.5 32.5 L29.5 21.5 M22.5 32.5 V43.5"/><path d="M36.5 43.5 V21.5 H42.2 A5.6 5.6 0 0 1 42.2 32.7 H36.5 M42.4 33 L48.6 43.5"/></g></svg>
+      <b>YouRip</b><span class="pill">Live demo</span>
+    </div>
+    <h1>Your media,<br /><span>saved locally.</span></h1>
+    <p class="sub">A simulated demo of a local MP3 and MP4 converter. Nothing is downloaded here.</p>
+    <div class="foot">
+      <span class="chip c1">MP3 128–320 kbps</span><span class="chip c2">MP4 480–1080p</span><span class="chip c3">Queue of five</span><span class="chip c4">Runs locally</span>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="card back"></div>
+    <div class="card main">
+      <div class="top-row"><div class="eyebrow">01 / Convert</div><div class="seg"><i class="on">MP3</i><i>MP4</i></div></div>
+      <b class="title">Paste a YouTube link</b>
+      <div class="input"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.7-1.7"/></svg>https://www.youtube.com/watch?v=…</div>
+      <div class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-5-5m5 5l5-5M5 21h14"/></svg>Convert to MP3</div>
+    </div>
+    <div class="card queue">
+      <div class="q-head">Queue</div>
+      <div class="q-row"><div class="thumb"></div><div class="lines"><u></u><u></u></div><div class="spin"></div></div>
+      <div class="bar"><i></i></div>
+    </div>
+  </div>
+</body>
+</html>

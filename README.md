@@ -130,6 +130,15 @@ See [docs/vercel-demo.md](docs/vercel-demo.md) for the exact Vercel settings and
 
 ![YouRip live demo, mobile](docs/screenshots/demo-mobile.png)
 
+## Link previews
+
+Pasting the demo's address into iMessage, Slack, Discord, X, or LinkedIn shows a branded card (`yourip-frontend/public/og-image.png`, 1200×630) with the title and description. The tags live in [`yourip-frontend/src/app/layout.tsx`](yourip-frontend/src/app/layout.tsx) (Next.js metadata API) and are written into the static HTML at build time, which is what link-preview crawlers read because they do not run JavaScript. The icons and `manifest.webmanifest` are in `yourip-frontend/public/`.
+
+- **Absolute URLs:** `og:image`, `og:url`, `twitter:image`, and the canonical link must be absolute `https` URLs. They resolve against `SITE_URL` at the top of `layout.tsx` (currently `https://yt-media-converter.vercel.app`); change that one constant if the domain changes. The manifest uses only root-relative paths, so it needs no edit.
+- **Re-render the card:** the source is [`yourip-frontend/scripts/og-image.html`](yourip-frontend/scripts/og-image.html). Its header comment has the one-line Playwright command; fonts load from `node_modules`, so run `npm ci` in `yourip-frontend` first.
+- **Demo only:** the demo is deliberately `noindex`, so search engines will not list it; link previews still work.
+- **Caching:** messaging apps cache a preview per URL. After a deploy, share the link with a throwaway ending such as `?v=2` to see the new card straight away. Slack, Discord, X, and LinkedIn also have link-preview debuggers or refresh tools if they keep showing an old card.
+
 Use YouRip for content you own or have permission to download.
 
 Interface assets use [Lucide icons](https://lucide.dev/) (ISC), [shadcn/ui components](https://ui.shadcn.com/) (MIT) built on [Radix Primitives](https://www.radix-ui.com/primitives) (MIT), and [Motion for React](https://motion.dev/docs/react) (MIT).
